@@ -76,6 +76,8 @@ Special reserved words in bash: ! case  do done elif else esac fi for function i
 
 Special commands in bash: cd, pwd, eval, time
 
+Not mentioned in lists is: `=` which defines variables
+
 Special sh characters:
 
 * Lexical helpers: `#` comment,  `"` quote, `'` quote, <code>\\</code> char quote
@@ -85,3 +87,7 @@ Special sh characters:
 * Matching: `*` match 0+ characters, `?` match character
 * Arithmetic: `((...))`
 * Misc: `!`
+
+Short version:
+
+    !"$&'()*,:;<=>?@[\]^`{|}
