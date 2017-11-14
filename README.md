@@ -69,6 +69,8 @@ data Pattern = Plain String | Wild | AnyChar
 
 ## Special sh characters
 
+Aside from the below, there is also `if`, `do`, `while`, etc.
+
 Lexical helpers
 
 * `#` comment
