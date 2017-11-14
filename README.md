@@ -7,9 +7,9 @@ work with [the jl](https://github.com/chrisdone/jl) tool which is
 simply typed lambda calculus for querying JSON data structures. I
 believe the same mini-language can work well for a shell.
 
-Watch this space for updates.
+I'm using this document as a brainstorming area and to write up observations.
 
-## Observations
+## Shell is a templating language
 
 The good thing about Sh and its descendents is that by default it is
 "quoted". I.e. it produces lists of strings:
@@ -27,7 +27,7 @@ a templating language.
 
 I believe it's neccessary to preserve this property of shells.
 
-## The shell as a free monad
+## Shell is a free monad
 
 This quoted descripion is fairly well described as a rough ADT:
 
