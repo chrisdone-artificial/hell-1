@@ -67,9 +67,10 @@ MatchSubstitution [Pattern] ([String] -> Shell)
 data Pattern = Plain String | Wild | AnyChar
 ```
 
-## Special sh characters
+Special commands like `cd`, `pwd`, `time` would be additional
+constructors.
 
-Aside from the below, there is also `if`, `do`, `while`, etc.
+## Special sh characters
 
 Lexical helpers
 
@@ -109,3 +110,12 @@ Arithmetic
 Misc
 
 `!`
+
+## Special reserved words in bash
+
+    ! case  do done elif else esac fi for function if
+    in select then until while { } time [[ ]]
+
+## Special commands in bash
+
+    cd, pwd, eval, time
