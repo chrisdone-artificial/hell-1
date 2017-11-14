@@ -81,6 +81,6 @@ Special sh characters:
 * Lexical helpers: `#` comment,  `"` quote, `'` quote, <code>\\</code> char quote
 * Variables: `$` variable, `${...}` variable, `$<foo>` various globals, `%` job number
 * Process control: `|` pipe, `&` background job,  <code>\`</code> command substitute, `;` command separator, `$(..)` command substitute, `( .. ; ..)` subshell, `{ .. ; ..}` sequence, `>`, `<`, `<<`, `>>` redirect IO
-* Matching: `*` match 0+ charactes, `?` match character, `~` home directory (and `~foo`)
+* Matching: `*` match 0+ characters, `?` match character, `~` home directory (and `~foo`)
 * Arithmetic: `((...))`
 * Misc: `!`
