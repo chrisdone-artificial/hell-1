@@ -15,7 +15,48 @@ it the ability to write pure functional code (similar to jl or
 haskell).
 
 ``` haskell
-$ let xs = [1,3,5]; ls | grep -o ^[0-9]+ | filter (elem xs) | take 5 > nums.txt
+$ let xs = [1,3,5]; ls | grep -o ^[0-9]+ | ${filter (elem xs) | take 5} > nums.txt
+```
+
+Script files may look like this. `${ }` splices in the pure language,
+whereas `do { .. }` or simply `do x; y` (a la Haskell) quotes shell
+commands.
+
+``` haskell
+main = do
+  reset
+  build
+  import
+  test
+
+files = [ "types.sql, "table_schema.sql", "functions.sql" ]
+
+out = "../dumps/out.sql"
+
+n = "demo"
+
+reset = do
+  dropdb $n
+  createdb $n -O $n
+  echo "" > $out
+  forM files $ \f -> do cat ${"../schema/pg/" <> f} >> $out
+
+build = do
+ stack build
+ rm -f ast-cache.store
+ time stack exec -- tsql ../schema/sqlserver/schema.sql > $out
+
+extensions =
+ [ 'create extension if not exists "uuid-ossp"'
+ , 'create extension if not exists "citext"' ]
+
+import = do
+  unlines extensions | pg_import
+  $out < pg_import > /dev/null
+
+pg_import = do time psql -d pg --quiet -X
+
+test = do stack test
 ```
 
 I'm using this document as a brainstorming area and to write up
