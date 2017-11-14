@@ -35,9 +35,9 @@ data Shell
   = Command [String] -- ls -al foo
   | Pipe [Command] -- |
   | Sequence [Shell] -- ;
-  | Redirect [Shell] FilePath -- ls > foo.txt
+  | Redirect Shell FilePath -- ls > foo.txt
   | Background Shell -- ls &
-  | Substitution Shell (String -> Shell)
+  | Substitution Shell (String -> Shell) -- $(...) or `...`
 ```
 
 Substitution is where the shell gets its `join` operator, or `>>=`, in
