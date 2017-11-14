@@ -41,9 +41,7 @@ data Shell
   | Substitution Shell (String -> Shell) -- $(...) or `...`
 ```
 
-**Side note**:
-
-> Actually, there are some questions here. `Pipe` can't really pipe
+> **Side note** Actually, there are some questions here. `Pipe` can't really pipe
 `ls > x.txt` with `cat` because the output has been redirected to
 `x.txt`. Should we disallow that in the ADT? Or perhaps all `Shell`
 can be piped and if it's a redirected then the output is simply empty,
