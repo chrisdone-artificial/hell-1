@@ -1,13 +1,25 @@
 # hell
 
-My first version of this experiment wasn't good; I never used it.
+> **Side note** My first version of this experiment wasn't good; I
+never used it. That was based on shell-conduit, but it's a bit OTT and
+wasn't as cosy to use as bash.
 
 I've been working on a more practical version based somewhat on my
 work with [the jl](https://github.com/chrisdone/jl) tool which is
 simply typed lambda calculus for querying JSON data structures. I
 believe the same mini-language can work well for a shell.
 
-I'm using this document as a brainstorming area and to write up observations.
+I think that the language can be laid out as a simple command
+language that looks very much like regular `sh`, but embedded within
+it the ability to write pure functional code (similar to jl or
+haskell).
+
+``` haskell
+$ let xs = [1,3,5]; ls | grep -o ^[0-9]+ | filter (elem xs) | take 5
+```
+
+I'm using this document as a brainstorming area and to write up
+observations.
 
 ## Shell is a templating language
 
