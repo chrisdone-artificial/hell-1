@@ -61,8 +61,7 @@ doesn't output to stdout but rather a new pipe output.
 >   Sequence :: Shell i _o a -> Shell _i o a -> Shell i o a
 >   Redirect :: Shell i Out a -> FilePath -> Shell i None a
 >   Background :: Shell i _o a -> Shell i None a
->   Substitution :: Shell None Out a -> (String -> Shell i o a) -> Shell
->   i o a
+>   Substitution :: Shell None Out a -> (String -> Shell i o a) -> Shell i o a
 > ```
 >
 
