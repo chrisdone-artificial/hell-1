@@ -21,7 +21,7 @@ This is the list of strings:
     ["ls","-al","foo"]
 
 The special syntactical character is ` ` (space). Other special
-characters are [listed below](#special-sh-characters). Aside from
+characters are listed below. Aside from
 these special characters, all other text is quoted. This makes shells
 a templating language.
 
@@ -70,52 +70,17 @@ data Pattern = Plain String | Wild | AnyChar
 Special commands like `cd`, `pwd`, `time` would be additional
 constructors.
 
-## Special sh characters
+# Syntactical analysis of sh/bash
 
-Lexical helpers
+Special reserved words in bash: ! case  do done elif else esac fi for function if in select then until while { } time [[ ]]
 
-* `#` comment
-*  `"` quote
-* `'` quote
-* <code>\\</code> char quote
+Special commands in bash: cd, pwd, eval, time
 
-Variables
+Special sh characters:
 
-* `$` variable
-* `${...}` variable
-* `$<foo>` various globals
-* `%` job number
-
-Process control
-
-* `|` pipe
-* `&` background job
-*  <code>`</code> command substitute
-* `;` command separator
-* `$(..)` command substitute
-* `( .. ; ..)` subshell
-* `{ .. ; ..}` sequence
-* `>`, `<`, `<<`, `>>` redirect IO
-
-Matching
-
-* `*` match 0+ charactes
-* `?` match character
-* `~` home directory (and `~foo`)
-
-Arithmetic
-
-* `((...))`
-
-Misc
-
-`!`
-
-## Special reserved words in bash
-
-    ! case  do done elif else esac fi for function if
-    in select then until while { } time [[ ]]
-
-## Special commands in bash
-
-    cd, pwd, eval, time
+* Lexical helpers: `#` comment,  `"` quote, `'` quote, <code>\\</code> char quote
+* Variables: `$` variable, `${...}` variable, `$<foo>` various globals, `%` job number
+* Process control: `|` pipe, `&` background job,  <code>`</code> command substitute, `;` command separator, `$(..)` command substitute, `( .. ; ..)` subshell, `{ .. ; ..}` sequence, `>`, `<`, `<<`, `>>` redirect IO
+* Matching: `*` match 0+ charactes, `?` match character, `~` home directory (and `~foo`)
+* Arithmetic: `((...))`
+* Misc: `!`
