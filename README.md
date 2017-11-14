@@ -79,8 +79,9 @@ Special commands in bash: cd, pwd, eval, time
 Special sh characters:
 
 * Lexical helpers: `#` comment,  `"` quote, `'` quote, <code>\\</code> char quote
-* Variables: `$` variable, `${...}` variable, `$<foo>` various globals, `%` job number
+* Variables: `$` variable, `${...}` variable, `$<foo>` various
+  globals, `%` job number, , `~` home directory (and `~foo`)
 * Process control: `|` pipe, `&` background job,  <code>\`</code> command substitute, `;` command separator, `$(..)` command substitute, `( .. ; ..)` subshell, `{ .. ; ..}` sequence, `>`, `<`, `<<`, `>>` redirect IO
-* Matching: `*` match 0+ characters, `?` match character, `~` home directory (and `~foo`)
+* Matching: `*` match 0+ characters, `?` match character
 * Arithmetic: `((...))`
 * Misc: `!`
