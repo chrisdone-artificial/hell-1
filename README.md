@@ -82,7 +82,7 @@ I believe it's neccessary to preserve this property of shells.
 
 ## Shell is a free monad
 
-This quoted descripion is fairly well described as a rough ADT:
+This idea of a shell is fairly well described as a rough ADT:
 
 ``` haskell
 data Shell
