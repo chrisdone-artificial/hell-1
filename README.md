@@ -62,7 +62,7 @@ Lexical helpers
 * `#` comment
 *  `"` quote
 * `'` quote
-* <code>\</code> char quote
+* <code>\\</code> char quote
 
 Variables
 
