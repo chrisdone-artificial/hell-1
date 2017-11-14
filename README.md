@@ -55,6 +55,17 @@ Command ["docker-machine","ip","server"]
     Command ["nc", sub1]
 ```
 
+The syntax in sh `ls x.*` is a runtime expansion depending on the
+contents of the directory. It might expand to `ls x.txt x.foo`
+etc. This logic can be handled by an additional `MatchSubstitution`
+construtor:
+
+``` haskell
+MatchSubstitution [Pattern] ([String] -> Shell)
+
+data Pattern = Plain String | Wild | AnyChar
+```
+
 ## Special sh characters
 
 Lexical helpers
