@@ -34,12 +34,19 @@ This quoted descripion is fairly well described as a rough ADT:
 ``` haskell
 data Shell
   = Command [String] -- ls -al foo
-  | Pipe [Command] -- |
+  | Pipe [Shell] -- |
   | Sequence [Shell] -- ;
   | Redirect Shell FilePath -- ls > foo.txt
   | Background Shell -- ls &
   | Substitution Shell (String -> Shell) -- $(...) or `...`
 ```
+
+**Side note**: Actually, there are some questions here. `Pipe` can't
+really pipe `ls > x.txt` with `cat` because the output has been
+redirected to `x.txt`. Should we disallow that in the ADT? Or perhaps
+all `Shell` can be piped and if it's a redirected then the output is
+simply empty, because stdout is closed. The same applies to background
+`ls&` which doesn't output to stdout but rather a new pipe output.
 
 Substitution is where the shell gets its `join` operator, or `>>=`, in
 which it can make decisions. Before that, it's more of an arrow.
