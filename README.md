@@ -29,7 +29,7 @@ main = do
   import
   test
 
-files = [ "types.sql, "table_schema.sql", "functions.sql" ]
+files = [ "types.sql", "table_schema.sql", "functions.sql" ]
 
 out = "../dumps/out.sql"
 
