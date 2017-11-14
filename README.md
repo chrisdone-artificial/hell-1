@@ -22,10 +22,22 @@ This is the list of strings:
 
 The special syntactical character is ` ` (space). Other special
 characters are listed below. Aside from these special characters, all
-other text is quoted.
+other text is quoted. This makes shells a templating language.
 
-I believe it's neccessary to preserve this quote-by-default behavior
-of shells.
+I believe it's neccessary to preserve this property of shells.
+
+## The shell as a free monad
+
+This quoted descripion is fairly well described as a rough ADT:
+
+``` haskell
+data Shell
+  = Command [String] -- ls -al foo
+  | Pipe [Command] -- |
+  | Sequence [Shell] -- ;
+  | Redirect [Shell] FilePath -- ls > foo.txt
+  | Background Shell -- ls &
+```
 
 ## Special sh characters
 
