@@ -39,7 +39,7 @@ reset = do
   dropdb $n
   createdb $n -O $n
   echo "" > $out
-  forM files $ \f -> do cat ${"../schema/pg/" <> f} >> $out
+  for files $ \f -> do cat ${"../schema/pg/" <> f} >> $out
 
 build = do
  stack build
