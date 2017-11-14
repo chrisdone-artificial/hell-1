@@ -24,10 +24,10 @@ commands.
 
 ``` haskell
 main = do
-  reset
-  build
-  import
-  test
+  $reset
+  $build
+  $import
+  $test
 
 files = [ "types.sql, "table_schema.sql", "functions.sql" ]
 
@@ -51,8 +51,8 @@ extensions =
  , 'create extension if not exists "citext"' ]
 
 import = do
-  unlines extensions | pg_import
-  $out < pg_import > /dev/null
+  unlines extensions | $pg_import
+  $out < $pg_import > /dev/null
 
 pg_import = do time psql -d pg --quiet -X
 
