@@ -39,6 +39,21 @@ data Shell
   | Background Shell -- ls &
 ```
 
+Substitution is where the shell gets its `join` operator, or `>>=`, in
+which it can make decisions. Before that, it's more of an arrow.
+
+``` shell
+nc $(docker-machine ip server)
+```
+
+is similar to
+
+``` haskell
+Command ["docker-machine","ip","server"]
+  >>= \sub1 ->
+    Command ["nc", sub1]
+```
+
 ## Special sh characters
 
 Lexical helpers
