@@ -37,6 +37,7 @@ data Shell
   | Sequence [Shell] -- ;
   | Redirect [Shell] FilePath -- ls > foo.txt
   | Background Shell -- ls &
+  | Substitution Shell (String -> Shell)
 ```
 
 Substitution is where the shell gets its `join` operator, or `>>=`, in
