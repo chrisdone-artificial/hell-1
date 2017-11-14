@@ -21,8 +21,9 @@ This is the list of strings:
     ["ls","-al","foo"]
 
 The special syntactical character is ` ` (space). Other special
-characters are listed below. Aside from these special characters, all
-other text is quoted. This makes shells a templating language.
+characters are [listed below](#special-sh-characters). Aside from
+these special characters, all other text is quoted. This makes shells
+a templating language.
 
 I believe it's neccessary to preserve this property of shells.
 
