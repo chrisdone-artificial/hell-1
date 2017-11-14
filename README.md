@@ -15,7 +15,7 @@ it the ability to write pure functional code (similar to jl or
 haskell).
 
 ``` haskell
-$ let xs = [1,3,5]; ls | grep -o ^[0-9]+ | filter (elem xs) | take 5
+$ let xs = [1,3,5]; ls | grep -o ^[0-9]+ | filter (elem xs) | take 5 > nums.txt
 ```
 
 I'm using this document as a brainstorming area and to write up
