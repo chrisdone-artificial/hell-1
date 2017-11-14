@@ -41,12 +41,32 @@ data Shell
   | Substitution Shell (String -> Shell) -- $(...) or `...`
 ```
 
-**Side note**: Actually, there are some questions here. `Pipe` can't
-really pipe `ls > x.txt` with `cat` because the output has been
-redirected to `x.txt`. Should we disallow that in the ADT? Or perhaps
-all `Shell` can be piped and if it's a redirected then the output is
-simply empty, because stdout is closed. The same applies to background
-`ls&` which doesn't output to stdout but rather a new pipe output.
+**Side note**:
+
+> Actually, there are some questions here. `Pipe` can't really pipe
+`ls > x.txt` with `cat` because the output has been redirected to
+`x.txt`. Should we disallow that in the ADT? Or perhaps all `Shell`
+can be piped and if it's a redirected then the output is simply empty,
+because stdout is closed. The same applies to background `ls&` which
+doesn't output to stdout but rather a new pipe output.
+>
+> An example type might be:
+>
+> ``` haskell
+> data In
+> data Out
+> data None
+>
+> data Shell i o a where
+>   Command :: [String] -> Shell In Out a
+>   Pipe :: Shell i Out a -> Shell In o a -> Shell i o a
+>   Sequence :: Shell i _o a -> Shell _i o a -> Shell i o a
+>   Redirect :: Shell i Out a -> FilePath -> Shell i None a
+>   Background :: Shell i _o a -> Shell i None a
+>   Substitution :: Shell None Out a -> (String -> Shell i o a) -> Shell
+>   i o a
+> ```
+>
 
 Substitution is where the shell gets its `join` operator, or `>>=`, in
 which it can make decisions. Before that, it's more of an arrow.
