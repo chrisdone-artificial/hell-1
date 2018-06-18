@@ -18,18 +18,26 @@ data Shell i o a where
   Command :: String -> [String] -> Shell ByteString ByteString ExitCode
   Pipe :: Shell i ByteString a -> Shell ByteString o a -> Shell i o a
   Sequence :: Shell i _o a -> Shell _i o a -> Shell i o a
-  Redirect :: Shell i ByteString a -> FilePath -> Shell i Void a
+  Redirect :: Shell i ByteString a -> FilePath -> WriteMode -> Shell i Void a
   Background :: Shell i _o a -> Shell i Void ThreadId
   Substitution :: Shell Void ByteString ByteString -> (ByteString -> Shell i o a) -> Shell i o a
+
+data WriteMode = Append | Write
 
 interpret :: StreamSpec 'STInput () -> StreamSpec 'STOutput r -> Shell i o a -> IO a
 interpret input output =
   \case
     Command cmd args -> do
-      runProcess (setCloseFds True (setStdin input (setStdout output (proc cmd args))))
+      runProcess
+        (setCloseFds True (setStdin input (setStdout output (proc cmd args))))
     Sequence x y -> interpret input output x >> interpret input output y
-    Redirect src fp -> do
-      handle <- openFile fp WriteMode
+    Redirect src fp mode -> do
+      handle <-
+        openFile
+          fp
+          (case mode of
+             Write -> WriteMode
+             Append -> AppendMode)
       interpret input (useHandleClose handle) src
     Background src -> forkIO (void (interpret input output src))
     Substitution src f -> do
@@ -57,4 +65,5 @@ main = do
              (Pipe
                 (Command "grep" ["[a-zA-Z]*", "-o", "--line-buffered"])
                 (Command "cat" []))
-             "out.txt")))
+             "out.txt"
+             Write)))
