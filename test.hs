@@ -172,3 +172,29 @@ tailDemo =
           (Command "cat" []))
        "out.txt"
        Write)
+
+--------------------------------------------------------------------------------
+-- Shell combinations that don't compile
+
+-- Couldn't match type ‘()’ with ‘ByteString’
+--        Expected type: Shell ByteString ByteString ThreadId
+--          Actual type: Shell ByteString () ThreadId
+--
+-- badCode = Pipe (Background (Command "ls" []))
+--                (Background (Command "cat" []))
+
+
+-- Couldn't match type ‘()’ with ‘ByteString’
+--        Expected type: Shell ByteString ByteString ExitCode
+--          Actual type: Shell ByteString () ExitCode
+--
+-- badCode = Pipe (Redirect (Command "ls" []) "foo.txt" Write)
+--                (Command "cat" [])
+
+
+-- Couldn't match type ‘()’ with ‘ByteString’
+--        Expected type: Shell ByteString ByteString ThreadId
+--          Actual type: Shell ByteString () ThreadId
+--
+-- badCode = Substitution (Background (Command "ls" []))
+--                        (\out -> Command "cat" [])
