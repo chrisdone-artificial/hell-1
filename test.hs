@@ -24,6 +24,8 @@ import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import           GHC.IO.Handle
+import           Prelude hiding (error)
 import           System.Exit
 import           System.IO
 import qualified System.Process as Raw (createPipe)
@@ -43,7 +45,7 @@ data Shell i o r where
   Sequence :: Shell i _o _a -> Shell i o r -> Shell i o r
   -- ^ A sequence of commands doesn't necessarily write anything.
 
-  Redirect :: Shell i ByteString r -> FilePath -> WriteMode -> Shell i o r
+  Redirect :: Shell i ByteString r -> Redirect -> Shell i o r
   -- ^ A redirect may read, must accept a 'Shell' which writes, but
   -- produces '()' output in its final type, instead writing the
   -- output to a file.
@@ -62,68 +64,79 @@ data Shell i o r where
   Conduit :: ConduitT ByteString ByteString IO () -> Shell ByteString ByteString ()
   -- ^ Run a pure Haskell conduit.
 
--- | File write mode, append or write.
-data WriteMode = Append | Write
+-- | Redirection of a process output.
+data Redirect
+  = StdoutTo To
+  | StderrTo To
+
+-- | Redirect process output to.
+data To
+  = ToStdout
+  | ToStderr
+  | ToFile FilePath
+  | ToFileAppend FilePath
 
 --------------------------------------------------------------------------------
 -- Interpreter
 
 -- | Interpret a shell.
-interpret :: Maybe Handle -- ^ Input stream.
-  -> Maybe Handle -- ^ Output stream.
+interpret ::
+     Handle -- ^ Input stream.
+  -> Handle -- ^ Output stream.
+  -> Handle -- ^ Err stream.
   -> Shell i o r -- ^ Shell to run.
   -> IO r -- ^ Output from the shell.
-interpret input output =
+interpret input output error =
   \case
     Command cmd args -> do
       runProcess
         (setCloseFds
            True
-           (maybe
-              id
-              (setStdin . useHandleOpen)
-              input
-              (maybe
-                 id
-                 (setStdout . useHandleOpen)
-                 output
-                 (proc (T.unpack cmd) (map T.unpack args)))))
+           (setStderr
+              (useHandleOpen error)
+              (setStdin
+                 (useHandleOpen input)
+                 (setStdout
+                    (useHandleOpen output)
+                    (proc (T.unpack cmd) (map T.unpack args))))))
     Sequence x y -> do
-      _ <- interpret input output x
-      interpret input output y
-    Redirect src fp mode -> do
-      h <-
-        openFile
-          fp
-          (case mode of
-             Write -> WriteMode
-             Append -> AppendMode)
-      interpret input (Just h) src `finally` hClose h
-    Background src -> forkIO (void (interpret input output src))
+      _ <- interpret input output error x
+      interpret input output error y
+    Redirect src redirect ->
+      case redirect of
+        StdoutTo to -> do
+          (h, final) <- getTo to
+          interpret input h error src `finally` final
+        StderrTo to -> do
+          (h, final) <- getTo to
+          interpret input output h src `finally` final
+      where getTo to =
+              case to of
+                ToStderr -> pure (error, pure ())
+                ToStdout -> pure (output, pure ())
+                ToFile fp -> do
+                  h <- openFile fp WriteMode
+                  pure (h, hClose h)
+                ToFileAppend fp -> do
+                  h <- openFile fp AppendMode
+                  pure (h, hClose h)
+    Background src -> forkIO (void (interpret input output error src))
     Substitution src f -> do
       (reader, writer) <- Raw.createPipe
-      _ <- interpret input (Just writer) src `finally` hClose writer
+      _ <- interpret input writer error src `finally` hClose writer
       o <- S.hGetContents reader
-      interpret input output (f o)
+      interpret input output error (f o)
     Pipe from to -> do
       (reader, writer) <- Raw.createPipe
       (_, v) <-
         concurrently
-          (interpret input (Just writer) from `finally` hClose writer)
-          (interpret (Just reader) output to `finally` hClose reader)
+          (interpret input writer error from `finally` hClose writer)
+          (interpret reader output error to `finally` hClose reader)
       pure v
-    Conduit c ->
-      case input of
-        Nothing -> pure ()
-        Just h -> do
-          hSetBuffering h NoBuffering
-          runConduit
-            (CB.sourceHandle h .| c .|
-             (case output of
-                Just ho -> do
-                  liftIO (hSetBuffering ho NoBuffering)
-                  CB.sinkHandle ho
-                Nothing -> awaitForever (liftIO . S.putStr)))
+    Conduit c -> do
+      hSetBuffering input NoBuffering
+      liftIO (hSetBuffering output NoBuffering)
+      runConduit (CB.sourceHandle input .| c .| CB.sinkHandle output)
 
 --------------------------------------------------------------------------------
 -- Examples
@@ -131,7 +144,7 @@ interpret input output =
 -- | Example use.
 main :: IO ()
 main = do
-  void (interpret Nothing Nothing conduitDemo)
+  void (interpret stdin stdout stderr tailDemo)
 
 conduitDemo :: Shell ByteString ByteString ExitCode
 conduitDemo =
@@ -159,16 +172,16 @@ subbing =
 sequencing :: Shell ByteString ByteString ExitCode
 sequencing =
   Sequence
-    (Redirect (Command "echo" ["hi"]) "x.txt" Write)
+    (Redirect (Command "echo" ["hi"]) (StdoutTo (ToFile "x.txt")))
     (Command "echo" ["done"])
 
 tailDemo :: Shell ByteString () ExitCode
 tailDemo =
   Pipe
-    (Sequence (Command "echo" ["Begin!"]) (Command "tail" ["-f", "hello.txt"]))
+    (Redirect (Command "tail" ["-f", "hello.txt"])
+              (StderrTo ToStdout))
     (Redirect
        (Pipe
           (Command "grep" ["[a-zA-Z]*", "-o", "--line-buffered"])
           (Command "cat" []))
-       "out.txt"
-       Write)
+       (StdoutTo (ToFile "out.txt")))
