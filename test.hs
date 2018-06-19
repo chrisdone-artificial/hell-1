@@ -88,16 +88,13 @@ interpret ::
 interpret input output error =
   \case
     Command cmd args -> do
-      runProcess
-        (setCloseFds
-           True
-           (setStderr
-              (useHandleOpen error)
-              (setStdin
-                 (useHandleOpen input)
-                 (setStdout
-                    (useHandleOpen output)
-                    (proc (T.unpack cmd) (map T.unpack args))))))
+      runProcess (config (proc (T.unpack cmd) (map T.unpack args)))
+      where config =
+              setDelegateCtlc True .
+              setCloseFds True .
+              setStderr (useHandleOpen error) .
+              setStdin (useHandleOpen input) .
+              setStdout (useHandleOpen output)
     Sequence x y -> do
       _ <- interpret input output error x
       interpret input output error y
