@@ -1,8 +1,6 @@
 # hell
 
-> **Side note** My first version of this experiment wasn't good; I
-never used it. That was based on shell-conduit, but it's a bit OTT and
-wasn't as cosy to use as bash.
+**[experimental]**
 
 I've been working on a more practical version based somewhat on my
 work with [the jl](https://github.com/chrisdone/jl) tool which is
