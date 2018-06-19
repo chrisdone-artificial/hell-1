@@ -73,7 +73,9 @@ interpret input output =
            (setStdin
               input
               (setStdout output (proc (T.unpack cmd) (map T.unpack args)))))
-    Sequence x y -> interpret input output x >> interpret input output y
+    Sequence x y -> do
+      interpret input output x
+      interpret input output y
     Redirect src fp mode -> do
       h <-
         openFile
