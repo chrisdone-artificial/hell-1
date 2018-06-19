@@ -24,7 +24,6 @@ import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           GHC.IO.Handle
 import           Prelude hiding (error)
 import           System.Exit
 import           System.IO
