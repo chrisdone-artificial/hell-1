@@ -43,12 +43,12 @@ data Shell i o r where
   Sequence :: Shell i _o _a -> Shell i o r -> Shell i o r
   -- ^ A sequence of commands doesn't necessarily write anything.
 
-  Redirect :: Shell i ByteString r -> FilePath -> WriteMode -> Shell i () r
+  Redirect :: Shell i ByteString r -> FilePath -> WriteMode -> Shell i o r
   -- ^ A redirect may read, must accept a 'Shell' which writes, but
   -- produces '()' output in its final type, instead writing the
   -- output to a file.
 
-  Background :: Shell i o r -> Shell i () ThreadId
+  Background :: Shell i o r -> Shell i o ThreadId
   -- ^ Launch a thread process in the background. Returns the thread
   -- id, produces no pipeable output.
 
@@ -172,29 +172,3 @@ tailDemo =
           (Command "cat" []))
        "out.txt"
        Write)
-
---------------------------------------------------------------------------------
--- Shell combinations that don't compile
-
--- Couldn't match type ‘()’ with ‘ByteString’
---        Expected type: Shell ByteString ByteString ThreadId
---          Actual type: Shell ByteString () ThreadId
---
--- badCode = Pipe (Background (Command "ls" []))
---                (Background (Command "cat" []))
-
-
--- Couldn't match type ‘()’ with ‘ByteString’
---        Expected type: Shell ByteString ByteString ExitCode
---          Actual type: Shell ByteString () ExitCode
---
--- badCode = Pipe (Redirect (Command "ls" []) "foo.txt" Write)
---                (Command "cat" [])
-
-
--- Couldn't match type ‘()’ with ‘ByteString’
---        Expected type: Shell ByteString ByteString ThreadId
---          Actual type: Shell ByteString () ThreadId
---
--- badCode = Substitution (Background (Command "ls" []))
---                        (\out -> Command "cat" [])
