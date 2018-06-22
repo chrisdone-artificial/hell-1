@@ -12,9 +12,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -Wall
+  ghc-options:         -Wall -O2
   exposed-modules:     Hell
                        Hell.Types
+                       Hell.Lexer
                        Hell.Interpreter
   build-depends:       base >= 4.7 && < 5,
                        bytestring,
@@ -27,13 +28,16 @@ library
                        mtl,
                        async,
                        attoparsec,
-                       text
+                       megaparsec,
+                       text,
+                       criterion
   default-language:    Haskell2010
 
-executable hell-exe
+benchmark hell-exe
+  type:               exitcode-stdio-1.0
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -Wall -O2
   build-depends:       base
                      , hell
                      , optparse-applicative
@@ -47,7 +51,9 @@ executable hell-exe
                        mtl,
                        async,
                        attoparsec,
-                       text
+                       megaparsec,
+                       text,
+                       criterion
   default-language:    Haskell2010
 
 source-repository head

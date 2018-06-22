@@ -14,6 +14,7 @@ import           Data.Functor
 import           Data.Monoid
 import qualified Data.Text.Encoding as T
 import           Hell
+import           Hell.Lexer
 import           System.Exit
 import           System.IO
 
@@ -22,8 +23,9 @@ import           System.IO
 
 -- | Example use.
 main :: IO ()
-main = do
-  void (interpret stdin stdout stderr tailDemo)
+main =
+  do benchParsers "demo.hell"
+  -- void (interpret stdin stdout stderr tailDemo)
 
 conduitDemo :: Shell ByteString ByteString ExitCode
 conduitDemo =
