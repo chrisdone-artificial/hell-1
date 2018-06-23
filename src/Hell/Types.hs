@@ -1,15 +1,22 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 
 -- | All types for the language.
 
 module Hell.Types where
 
-import Control.Concurrent (ThreadId)
-import Data.ByteString (ByteString)
-import Data.Conduit (ConduitT)
-import Data.Text (Text)
-import Prelude hiding (error)
-import System.Exit (ExitCode)
+import           Control.Concurrent (ThreadId)
+import           Data.ByteString (ByteString)
+import           Data.Conduit (ConduitT)
+import           Data.Foldable
+import           Data.Proxy
+import           Data.Sequence (Seq((:<|)))
+import qualified Data.Sequence as Seq
+import           Data.Text (Text)
+import           Prelude hiding (error)
+import           System.Exit (ExitCode)
+import qualified Text.Megaparsec as Mega
 
 -- | A shell pipeline.
 data Shell i o r where
@@ -53,3 +60,44 @@ data To
   | ToStderr
   | ToFile FilePath
   | ToFileAppend FilePath
+
+data LToken = LToken
+  { ltokenStart :: !Mega.SourcePos
+  , ltokenEnd :: !Mega.SourcePos
+  , ltokenToken :: !Token
+  } deriving (Show, Eq, Ord)
+
+data Token
+  = SpliceBegin
+  | SpliceEnd
+  | SpliceVar !ByteString
+  | QuoteBegin
+  | QuoteEnd
+  | Quoted !ByteString
+  | Unquoted !ByteString
+  | StringLiteral !ByteString
+  | Comment !ByteString
+  deriving (Show, Eq, Ord)
+
+instance Mega.Stream (Seq LToken) where
+  type Token (Seq LToken) = LToken
+  type Tokens (Seq LToken) = Seq LToken
+  tokenToChunk Proxy = pure
+  tokensToChunk Proxy = Seq.fromList
+  chunkToTokens Proxy = toList
+  chunkLength Proxy = length
+  chunkEmpty Proxy = null
+  positionAt1 Proxy _ (LToken start _ _) = start
+  positionAtN Proxy pos Seq.Empty = pos
+  positionAtN Proxy _ (LToken start _ _ :<| _) = start
+  advance1 Proxy _ _ (LToken _ end _) = end
+  advanceN Proxy _ pos Seq.Empty = pos
+  advanceN Proxy _ _ ts =
+    let LToken _ end _ = last (toList ts) in end
+  take1_ Seq.Empty = Nothing
+  take1_ (t :<| ts) = Just (t, ts)
+  takeN_ n s
+    | n <= 0   = Just (mempty, s)
+    | null s   = Nothing
+    | otherwise = Just (Seq.splitAt n s)
+  takeWhile_ = Seq.spanl

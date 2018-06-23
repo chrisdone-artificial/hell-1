@@ -1,87 +1,91 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Lexer for the Hell language.
 
-module Hell.Lexer where
+module Hell.Lexer
+  ( lexFile
+  , lexQuoted
+  , lexUnquoted
+  ) where
 
 import           Control.Applicative
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import           Data.Char
-import           Data.Sequence (Seq, (<|), (|>))
+import           Data.Sequence (Seq(), (<|), (|>))
 import           Data.Void
 import           Data.Word
+import           Hell.Types
 import qualified Text.Megaparsec as Mega
 import qualified Text.Megaparsec.Byte as Mega
 import           Text.Megaparsec.Error
 
-data Token
-  = SpliceBegin
-  | SpliceEnd
-  | SpliceVar !ByteString
-  | QuoteBegin
-  | QuoteEnd
-  | Quoted !ByteString
-  | Unquoted !ByteString
-  | StringLiteral !ByteString
-  | Comment !ByteString
-  deriving (Show, Eq)
+-- | Lex bytes into a series of LTokens.
+type Lexer = Mega.Parsec Void ByteString
 
-type Parser = Mega.Parsec Void ByteString
-
-lexFile :: FilePath -> IO (Seq Token)
+lexFile :: FilePath -> IO (Seq LToken)
 lexFile fp = do
   bs <- S.readFile fp
   (case Mega.runParser (lexUnquoted <* Mega.eof) "" bs of
      Left e -> error (parseErrorPretty' bs e)
      Right x -> pure x)
 
-lexQuoted :: Parser (Seq Token)
+lexQuoted :: Lexer (Seq LToken)
 lexQuoted =
   fmap
     mconcat
-    (Mega.some (comment <|> unquoted <|> var <|> byteString <|> string))
+    (Mega.some
+       (fmap pure lexComment <|> unquoted <|> var <|> byteString <|> string))
   where
-    comment =
-      fmap
-        pure
-        (Comment <$>
-         (Mega.char (c2w '#') *>
-          Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
     unquoted = do
-      tokens <- Mega.string "${" *> lexUnquoted <* Mega.char (c2w '}')
-      pure (SpliceBegin <| (tokens |> SpliceEnd))
+      begin <- located (SpliceBegin <$ Mega.string "${")
+      inner <- lexUnquoted
+      end <- located (SpliceEnd <$ Mega.string "}")
+      pure (begin <| (inner |> end))
     var =
       fmap
         pure
-        (SpliceVar <$>
-         (Mega.char (c2w '$') *>
-          Mega.takeWhile1P Nothing ((\c -> isAlphaNum c) . w2c)))
+        (located
+           (SpliceVar <$>
+            (Mega.char (c2w '$') *>
+             Mega.takeWhile1P Nothing ((\c -> isAlphaNum c) . w2c))))
     byteString =
-      fmap pure (Quoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c))
-    string = fmap pure (StringLiteral <$> lexString)
-    boundary c = c == '"' || c == '$' || c == '}' || c == '#'
-
-lexUnquoted :: Parser (Seq Token)
-lexUnquoted =
-  fmap mconcat (Mega.some (comment <|> quoted <|> byteString <|> string))
-  where
-    comment =
       fmap
         pure
-        (Comment <$>
-         (Mega.char (c2w '#') *>
-          Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
+        (located (Quoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
+    string = fmap pure lexString
+    boundary c = c == '"' || c == '$' || c == '}' || c == '#'
+
+lexUnquoted :: Lexer (Seq LToken)
+lexUnquoted =
+  fmap
+    mconcat
+    (Mega.some
+       (fmap pure lexComment <|> quoted <|> byteString <|> fmap pure lexString))
+  where
     quoted = do
-      tokens <- Mega.string "{" *> lexQuoted <* Mega.char (c2w '}')
-      pure (QuoteBegin <| (tokens |> QuoteEnd))
+      begin <- located (QuoteBegin <$ Mega.string "{")
+      inner <- lexQuoted
+      end <- located (QuoteEnd <$ Mega.string "}")
+      pure (begin <| (inner |> end))
     byteString =
-      fmap pure (Unquoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c))
-    string = pure . StringLiteral <$> lexString
+      fmap pure (located (Unquoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
     boundary c = c == '"' || c == '}' || c == '{' || c == '#'
 
-lexString :: Parser ByteString
-lexString = Mega.char (c2w '"') *> innerString <* Mega.char (c2w '"')
+lexComment :: Lexer LToken
+lexComment =
+  located
+    (Comment <$>
+     (Mega.char (c2w '#') *>
+      Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
+
+lexString :: Lexer LToken
+lexString =
+  located
+    (StringLiteral <$>
+     (Mega.char (c2w '"') *> innerString <* Mega.char (c2w '"')))
   where
     innerString = Mega.takeWhileP Nothing (/= c2w '"')
 
@@ -90,3 +94,10 @@ c2w = fromIntegral . fromEnum
 
 w2c :: Word8 -> Char
 w2c = toEnum . fromIntegral
+
+located :: Mega.MonadParsec e s m => m Token -> m LToken
+located m = do
+  start <- Mega.getPosition
+  v <- m
+  end <- Mega.getPosition
+  pure (LToken start end v)
