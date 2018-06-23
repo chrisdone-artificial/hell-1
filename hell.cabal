@@ -21,6 +21,7 @@ library
                        bytestring,
                        conduit,
                        conduit-extra,
+                       containers,
                        process,
                        typed-process,
                        directory,

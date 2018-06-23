@@ -8,68 +8,80 @@ import           Control.Applicative
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import           Data.Char
+import           Data.Sequence (Seq, (<|), (|>))
 import           Data.Void
 import           Data.Word
 import qualified Text.Megaparsec as Mega
 import qualified Text.Megaparsec.Byte as Mega
 import           Text.Megaparsec.Error
 
-data Quoted
-  = QuotedSplice ![Unquoted]
-  | QuotedByteString !ByteString
-  | QuotedString !ByteString
-  | QuotedSpliceWord !ByteString
-  | QuotedComment !ByteString
-  deriving (Show, Eq)
-
-data Unquoted
-  = UnquotedSplice ![Quoted]
-  | UnquotedByteString !ByteString
-  | UnquotedString !ByteString
-  | UnquotedSpliceWord !ByteString
-  | UnquotedComment !ByteString
+data Token
+  = SpliceBegin
+  | SpliceEnd
+  | SpliceVar !ByteString
+  | QuoteBegin
+  | QuoteEnd
+  | Quoted !ByteString
+  | Unquoted !ByteString
+  | StringLiteral !ByteString
+  | Comment !ByteString
   deriving (Show, Eq)
 
 type Parser = Mega.Parsec Void ByteString
 
-lexFileM :: FilePath -> IO [Unquoted]
-lexFileM fp = do
+lexFile :: FilePath -> IO (Seq Token)
+lexFile fp = do
   bs <- S.readFile fp
-  (case Mega.runParser (lexUnquotedM <* Mega.eof) "" bs of
+  (case Mega.runParser (lexUnquoted <* Mega.eof) "" bs of
      Left e -> error (parseErrorPretty' bs e)
      Right x -> pure x)
 
-lexQuotedM :: Parser [Quoted]
-lexQuotedM = Mega.some (comment <|> unquoted <|> var <|> byteString <|> string)
+lexQuoted :: Parser (Seq Token)
+lexQuoted =
+  fmap
+    mconcat
+    (Mega.some (comment <|> unquoted <|> var <|> byteString <|> string))
   where
     comment =
-      QuotedComment <$>
-      (Mega.char (c2w '#') *> Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c))
-    unquoted =
-      QuotedSplice <$>
-      (Mega.string "${" *> lexUnquotedM <* Mega.char (c2w '}'))
+      fmap
+        pure
+        (Comment <$>
+         (Mega.char (c2w '#') *>
+          Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
+    unquoted = do
+      tokens <- Mega.string "${" *> lexUnquoted <* Mega.char (c2w '}')
+      pure (SpliceBegin <| (tokens |> SpliceEnd))
     var =
-      QuotedSpliceWord <$>
-      (Mega.char (c2w '$') *> Mega.takeWhile1P Nothing ((\c -> isAlphaNum c).w2c))
-    byteString = QuotedByteString <$> Mega.takeWhile1P Nothing (not . boundary . w2c)
-    string = QuotedString <$> lexStringM
+      fmap
+        pure
+        (SpliceVar <$>
+         (Mega.char (c2w '$') *>
+          Mega.takeWhile1P Nothing ((\c -> isAlphaNum c) . w2c)))
+    byteString =
+      fmap pure (Quoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c))
+    string = fmap pure (StringLiteral <$> lexString)
     boundary c = c == '"' || c == '$' || c == '}' || c == '#'
 
-lexUnquotedM :: Parser [Unquoted]
-lexUnquotedM = Mega.some (comment <|> quoted <|> byteString <|> string)
+lexUnquoted :: Parser (Seq Token)
+lexUnquoted =
+  fmap mconcat (Mega.some (comment <|> quoted <|> byteString <|> string))
   where
     comment =
-      UnquotedComment <$>
-      (Mega.char (c2w '#') *> Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c))
-    quoted =
-      UnquotedSplice <$>
-      (Mega.string "{" *> lexQuotedM <* Mega.char (c2w '}'))
-    byteString = UnquotedByteString <$> Mega.takeWhile1P Nothing (not . boundary . w2c)
-    string = UnquotedString <$> lexStringM
+      fmap
+        pure
+        (Comment <$>
+         (Mega.char (c2w '#') *>
+          Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
+    quoted = do
+      tokens <- Mega.string "{" *> lexQuoted <* Mega.char (c2w '}')
+      pure (QuoteBegin <| (tokens |> QuoteEnd))
+    byteString =
+      fmap pure (Unquoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c))
+    string = pure . StringLiteral <$> lexString
     boundary c = c == '"' || c == '}' || c == '{' || c == '#'
 
-lexStringM :: Parser ByteString
-lexStringM = Mega.char (c2w '"') *> innerString <* Mega.char (c2w '"')
+lexString :: Parser ByteString
+lexString = Mega.char (c2w '"') *> innerString <* Mega.char (c2w '"')
   where
     innerString = Mega.takeWhileP Nothing (/= c2w '"')
 
