@@ -55,6 +55,29 @@ benchmark hell-exe
                        criterion
   default-language:    Haskell2010
 
+test-suite hell-test
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  ghc-options:         -Wall -O0
+  build-depends:       base
+                     , hell
+                     , hspec
+                     , optparse-applicative
+                     , bytestring,
+                       conduit,
+                       conduit-extra,
+                       process,
+                       typed-process,
+                       directory,
+                       transformers,
+                       mtl,
+                       async,
+                       megaparsec,
+                       text,
+                       criterion
+  default-language:    Haskell2010
+
 source-repository head
   type:     git
   location: https://github.com/chrisdone/hell

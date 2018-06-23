@@ -77,7 +77,7 @@ data Token
   | Unquoted !ByteString
   | StringLiteral !ByteString
   | Comment !ByteString
-  | Variable !ByteString
+  | LowerWord !ByteString
   | Equals
   | Let
   | OpenBracket

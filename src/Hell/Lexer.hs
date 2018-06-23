@@ -10,7 +10,6 @@ module Hell.Lexer
   , lexUnquoted
   ) where
 
-import           Control.Applicative
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import           Data.Char
@@ -92,9 +91,8 @@ lexUnquoted =
           , quoted
           , fmap pure lexString
           , fmap pure symbol
-          , fmap pure lets
           , fmap pure number
-          , fmap pure variable
+          , fmap pure lowerWord
           ] <*
         Mega.space))
   where
@@ -105,13 +103,11 @@ lexUnquoted =
       end <- located (QuoteEnd <$ Mega.string "}")
       Mega.space
       pure (begin <| (inner |> end))
-    variable =
+    lowerWord =
       located
         (do c <- Mega.takeWhile1P Nothing (isAlpha . w2c)
             cs <- Mega.takeWhileP Nothing (isAlpha . w2c)
-            pure (Variable (c <> cs)))
-    lets =
-      located ((Let <$ Mega.string "let") <|> (Where <$ Mega.string "where"))
+            pure (LowerWord (c <> cs)))
     number = located (Number <$> Lexer.decimal)
     symbol =
       located
