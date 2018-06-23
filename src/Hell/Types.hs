@@ -77,6 +77,8 @@ data Token
   | QuoteBeginToken
   | QuoteEndToken
   | QuotedToken !ByteString
+  | SubBeginToken
+  | SubEndToken
   | UnquotedToken !ByteString
   | StringLiteralToken !ByteString
   | CommentToken !ByteString

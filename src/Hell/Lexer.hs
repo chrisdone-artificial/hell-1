@@ -49,6 +49,7 @@ lexQuoted =
        (Mega.choice
           [ fmap pure lexComment
           , unquoted
+          , substitution
           , var
           , string
           , fmap pure symbol
@@ -56,6 +57,11 @@ lexQuoted =
           ] <*
         Mega.space))
   where
+    substitution = do
+      begin <- located (SubBeginToken <$ Mega.string "$(")
+      inner <- lexQuoted
+      end <- located (SubEndToken <$ Mega.string ")")
+      pure (begin <| (inner |> end))
     unquoted = do
       begin <- located (SpliceBeginToken <$ Mega.string "${")
       inner <- lexUnquoted
@@ -71,7 +77,8 @@ lexQuoted =
     quoted =
       fmap
         pure
-        (located (QuotedToken <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
+        (located
+           (QuotedToken <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
     string = fmap pure lexString
     symbol =
       located
@@ -84,7 +91,10 @@ lexQuoted =
            , BarToken <$ Mega.char (c2w '|')
            ])
     boundary c =
-      c == '"' || c == '$' || c == '}' || c == '#' || c == ' ' || c == ';'
+      c == '"' ||
+      c == '$' ||
+      c == '}' ||
+      c == '#' || c == ' ' || c == ';' || c == ')' || c == '(' || c == '{'
 
 -- | Lex unquoted regular code e.g. @let x = 1@.
 lexUnquoted :: Lexer (Seq LToken)

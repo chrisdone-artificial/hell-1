@@ -24,46 +24,46 @@ lexer =
        "Unquoted"
        (do it
              "Variable"
-             (lexed "var letvar" [LowerWord "var", LowerWord "letvar"])
-           it "Number" (lexed "123" [Number 123])
+             (lexed "var letvar" [LowerWordToken "var", LowerWordToken "letvar"])
+           it "Number" (lexed "123" [NumberToken 123])
            it
              "Symbols"
              (lexed
                 "=[](),"
-                [ Equals
-                , OpenBracket
-                , CloseBracket
-                , OpenParen
-                , CloseParen
-                , Comma
+                [ EqualsToken
+                , OpenBracketToken
+                , CloseBracketToken
+                , OpenParenToken
+                , CloseParenToken
+                , CommaToken
                 ])
            it
              "Quotation"
              (lexed
                 "{ foo; bar }"
-                [QuoteBegin, Quoted "foo", Semi, Quoted "bar", QuoteEnd])
+                [QuoteBeginToken, QuotedToken "foo", SemiToken, QuotedToken "bar", QuoteEndToken])
            it
              "Quotation with variable splice"
              (lexed
                 "{ foo; $bar }"
-                [QuoteBegin, Quoted "foo", Semi, SpliceVar "bar", QuoteEnd])
+                [QuoteBeginToken, QuotedToken "foo", SemiToken, SpliceVarToken "bar", QuoteEndToken])
            it
              "Quotation with code splice"
              (lexed
                 "{ foo; ${bar} }"
-                [ QuoteBegin
-                , Quoted "foo"
-                , Semi
-                , SpliceBegin
-                , LowerWord "bar"
-                , SpliceEnd
-                , QuoteEnd
+                [ QuoteBeginToken
+                , QuotedToken "foo"
+                , SemiToken
+                , SpliceBeginToken
+                , LowerWordToken "bar"
+                , SpliceEndToken
+                , QuoteEndToken
                 ])
            it
              "Comments"
              (lexed
                 "foo#bar\nmu"
-                [LowerWord "foo", Comment "bar", LowerWord "mu"])))
+                [LowerWordToken "foo", CommentToken "bar", LowerWordToken "mu"])))
   where
     lexed i y =
       case Mega.runParser (lexUnquoted <* Mega.eof) "" i of
