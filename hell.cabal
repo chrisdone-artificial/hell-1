@@ -27,7 +27,6 @@ library
                        transformers,
                        mtl,
                        async,
-                       attoparsec,
                        megaparsec,
                        text,
                        criterion
@@ -50,7 +49,6 @@ benchmark hell-exe
                        transformers,
                        mtl,
                        async,
-                       attoparsec,
                        megaparsec,
                        text,
                        criterion

@@ -5,11 +5,6 @@
 module Hell.Lexer where
 
 import           Control.Applicative
-import           Criterion
-import           Criterion.Main
-import           Data.Attoparsec.ByteString ((<?>))
-import qualified Data.Attoparsec.ByteString as Atto
-import qualified Data.Attoparsec.ByteString.Char8 as Atto8
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import           Data.Char
@@ -17,6 +12,7 @@ import           Data.Void
 import           Data.Word
 import qualified Text.Megaparsec as Mega
 import qualified Text.Megaparsec.Byte as Mega
+import           Text.Megaparsec.Error
 
 data Quoted
   = QuotedSplice ![Unquoted]
@@ -34,100 +30,16 @@ data Unquoted
   | UnquotedComment !ByteString
   deriving (Show, Eq)
 
-benchParsers :: FilePath -> IO ()
-benchParsers fp = do
-  bs <- S.readFile fp
-  defaultMain
-    [ bench
-        "attoparsec"
-        (whnf
-           (\bs' ->
-              case Atto8.parseOnly lexUnquoted bs' of
-                Left e -> error e
-                Right x -> x)
-           bs)
-    , bench
-        "megaparsec"
-        (whnf
-           (\bs' ->
-              case Mega.runParser lexUnquotedM "" bs' of
-                Left e -> error (show e)
-                Right x -> x)
-           bs)
-    ]
+type Parser = Mega.Parsec Void ByteString
 
---------------------------------------------------------------------------------
--- Attoparsec
-
-lexFile :: FilePath -> IO [Quoted]
-lexFile fp = do
-  bs <- S.readFile fp
-  (case Atto8.parseOnly lexQuoted bs of
-     Left e -> error e
-     Right x -> pure x)
-
-lexQuoted :: Atto8.Parser [Quoted]
-lexQuoted = Atto8.many1 (comment <|> unquoted <|> var <|> byteString <|> string)
-  where
-    comment =
-      QuotedComment <$>
-      (Atto8.char '#' *> Atto8.takeTill (\c -> c == '\r' || c == '\n'))
-    unquoted =
-      QuotedSplice <$>
-      (Atto8.string "${" *> lexUnquoted <* (Atto8.char '}' <?> "closing }"))
-    var =
-      QuotedSpliceWord <$>
-      (Atto8.char '$' *> Atto8.takeWhile1 (\c -> isAlphaNum c))
-    byteString = QuotedByteString <$> Atto8.takeWhile1 (not . boundary)
-    string = QuotedString <$> lexString
-    boundary c = c == '"' || c == '$' || c == '}' || c == '#'
-
-lexUnquoted :: Atto8.Parser [Unquoted]
-lexUnquoted = Atto8.many1 (comment <|> quoted <|> byteString <|> string)
-  where
-    comment =
-      UnquotedComment <$>
-      (Atto8.char '#' *> Atto8.takeTill (\c -> c == '\r' || c == '\n'))
-    quoted =
-      UnquotedSplice <$>
-      (Atto8.string "{" *> lexQuoted <* (Atto8.char '}'))
-    byteString = UnquotedByteString <$> Atto8.takeWhile1 (not . boundary)
-    string = UnquotedString <$> lexString
-    boundary c = c == '"' || c == '}' || c == '{' || c == '#'
-
-lexString :: Atto8.Parser ByteString
-lexString = Atto8.char '"' *> innerString <* Atto8.char '"'
-  where
-    innerString = Atto8.takeWhile (/= '"')
-    -- disabled for comparison with megaparsec
-    _innerString = do
-      (_, (backslash, string)) <-
-        Atto.runScanner
-          (False, id)
-          (\(backslash, string) c ->
-             if backslash
-               then pure (False, string . (c :))
-               else case toEnum (fromIntegral c) of
-                      '\\' -> pure (True, string)
-                      '"' -> Nothing
-                      _ -> pure (False, string . (c :)))
-      if backslash
-        then fail "missing escape character after \\"
-        else pure (S.pack (string []))
-
---------------------------------------------------------------------------------
--- Megaparsec
-
-type MegaParser = Mega.Parsec Void ByteString
-
-lexFileM :: FilePath -> IO [Quoted]
+lexFileM :: FilePath -> IO [Unquoted]
 lexFileM fp = do
   bs <- S.readFile fp
-  (case Mega.runParser lexQuotedM "" bs of
-     Left e -> error (show e)
+  (case Mega.runParser (lexUnquotedM <* Mega.eof) "" bs of
+     Left e -> error (parseErrorPretty' bs e)
      Right x -> pure x)
 
-lexQuotedM :: MegaParser [Quoted]
+lexQuotedM :: Parser [Quoted]
 lexQuotedM = Mega.some (comment <|> unquoted <|> var <|> byteString <|> string)
   where
     comment =
@@ -143,7 +55,7 @@ lexQuotedM = Mega.some (comment <|> unquoted <|> var <|> byteString <|> string)
     string = QuotedString <$> lexStringM
     boundary c = c == '"' || c == '$' || c == '}' || c == '#'
 
-lexUnquotedM :: MegaParser [Unquoted]
+lexUnquotedM :: Parser [Unquoted]
 lexUnquotedM = Mega.some (comment <|> quoted <|> byteString <|> string)
   where
     comment =
@@ -156,7 +68,7 @@ lexUnquotedM = Mega.some (comment <|> quoted <|> byteString <|> string)
     string = UnquotedString <$> lexStringM
     boundary c = c == '"' || c == '}' || c == '{' || c == '#'
 
-lexStringM :: MegaParser ByteString
+lexStringM :: Parser ByteString
 lexStringM = Mega.char (c2w '"') *> innerString <* Mega.char (c2w '"')
   where
     innerString = Mega.takeWhileP Nothing (/= c2w '"')
