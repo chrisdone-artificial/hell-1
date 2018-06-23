@@ -14,30 +14,42 @@ import           Control.Applicative
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import           Data.Char
+import           Data.Monoid
 import           Data.Sequence (Seq(), (<|), (|>))
 import           Data.Void
 import           Data.Word
 import           Hell.Types
 import qualified Text.Megaparsec as Mega
+import qualified Text.Megaparsec.Byte.Lexer as Lexer
 import qualified Text.Megaparsec.Byte as Mega
 import           Text.Megaparsec.Error
 
 -- | Lex bytes into a series of LTokens.
 type Lexer = Mega.Parsec Void ByteString
 
+-- | Open the file strictly and lex it.
 lexFile :: FilePath -> IO (Seq LToken)
 lexFile fp = do
   bs <- S.readFile fp
-  (case Mega.runParser (lexUnquoted <* Mega.eof) "" bs of
+  (case Mega.runParser (Mega.space *> lexUnquoted <* Mega.eof) "" bs of
      Left e -> error (parseErrorPretty' bs e)
      Right x -> pure x)
 
+-- | Lex quoted code e.g. @ls -alh@.
 lexQuoted :: Lexer (Seq LToken)
 lexQuoted =
   fmap
     mconcat
     (Mega.some
-       (fmap pure lexComment <|> unquoted <|> var <|> byteString <|> string))
+       (Mega.choice
+          [ fmap pure lexComment
+          , unquoted
+          , var
+          , string
+          , fmap pure symbol
+          , quoted
+          ] <*
+        Mega.space))
   where
     unquoted = do
       begin <- located (SpliceBegin <$ Mega.string "${")
@@ -51,28 +63,66 @@ lexQuoted =
            (SpliceVar <$>
             (Mega.char (c2w '$') *>
              Mega.takeWhile1P Nothing ((\c -> isAlphaNum c) . w2c))))
-    byteString =
+    quoted =
       fmap
         pure
         (located (Quoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
     string = fmap pure lexString
-    boundary c = c == '"' || c == '$' || c == '}' || c == '#'
+    symbol =
+      located
+        (Mega.choice
+           [ Comma <$ Mega.char (c2w ',')
+           , Semi <$ Mega.char (c2w ';')
+           , Ampersand <$ Mega.char (c2w '&')
+           , DoubleGreater <$ Mega.string ">>"
+           , Greater <$ Mega.char (c2w '>')
+           , Bar <$ Mega.char (c2w '|')
+           ])
+    boundary c =
+      c == '"' || c == '$' || c == '}' || c == '#' || c == ' ' || c == ';'
 
+-- | Lex unquoted regular code e.g. @let x = 1@.
 lexUnquoted :: Lexer (Seq LToken)
 lexUnquoted =
   fmap
     mconcat
     (Mega.some
-       (fmap pure lexComment <|> quoted <|> byteString <|> fmap pure lexString))
+       (Mega.choice
+          [ fmap pure lexComment
+          , quoted
+          , fmap pure lexString
+          , fmap pure symbol
+          , fmap pure lets
+          , fmap pure number
+          , fmap pure variable
+          ] <*
+        Mega.space))
   where
     quoted = do
       begin <- located (QuoteBegin <$ Mega.string "{")
+      Mega.space
       inner <- lexQuoted
       end <- located (QuoteEnd <$ Mega.string "}")
+      Mega.space
       pure (begin <| (inner |> end))
-    byteString =
-      fmap pure (located (Unquoted <$> Mega.takeWhile1P Nothing (not . boundary . w2c)))
-    boundary c = c == '"' || c == '}' || c == '{' || c == '#'
+    variable =
+      located
+        (do c <- Mega.takeWhile1P Nothing (isAlpha . w2c)
+            cs <- Mega.takeWhileP Nothing (isAlpha . w2c)
+            pure (Variable (c <> cs)))
+    lets =
+      located ((Let <$ Mega.string "let") <|> (Where <$ Mega.string "where"))
+    number = located (Number <$> Lexer.decimal)
+    symbol =
+      located
+        (Mega.choice
+           [ Equals <$ Mega.char (c2w '=')
+           , OpenBracket <$ Mega.char (c2w '[')
+           , CloseBracket <$ Mega.char (c2w ']')
+           , OpenParen <$ Mega.char (c2w '(')
+           , CloseParen <$ Mega.char (c2w ')')
+           , Comma <$ Mega.char (c2w ',')
+           ])
 
 lexComment :: Lexer LToken
 lexComment =

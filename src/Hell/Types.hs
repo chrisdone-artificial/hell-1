@@ -77,6 +77,21 @@ data Token
   | Unquoted !ByteString
   | StringLiteral !ByteString
   | Comment !ByteString
+  | Variable !ByteString
+  | Equals
+  | Let
+  | OpenBracket
+  | CloseBracket
+  | OpenParen
+  | CloseParen
+  | Number !Integer
+  | Comma
+  | Semi
+  | Ampersand
+  | Where
+  | Greater
+  | DoubleGreater
+  | Bar
   deriving (Show, Eq, Ord)
 
 instance Mega.Stream (Seq LToken) where
