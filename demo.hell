@@ -1,0 +1,25 @@
+demo = { # quoted comment
+  quoted $var; # another comment
+  echo "quoted ${} foo string";
+  ${let i = [1,2,3] # unquoted comment
+        p = {ls -al; cat foo.txt; # quoted comment
+           mkdir $i ${i} -p}
+        cmd = { stack }
+    in unquoted text
+       "unquoted {} string"
+       p
+       unquoted text2};
+  quoted;
+  text2;
+}
+main = {
+  echo hi;
+  ls -alh;
+  tail -f wibble.txt;
+  $continue;
+}
+continue = {
+  numbers <- ls -1 | grep [0-9]+ | $lines >> wibble.txt;
+  keys <- cat keys | $lines > foo.txt;
+  echo ${filter (elem xs) numbers};
+} where p = 123
