@@ -4,12 +4,21 @@
 
 module Main where
 
-import Data.Monoid
-import Options.Applicative.Simple
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as S8
+import           Data.Data
+import           Data.Foldable
+import           Data.Monoid
+import           Data.Sequence (Seq)
+import           Hell.Lexer
+import           Hell.Types
+import           Options.Applicative.Simple
+import qualified Text.Megaparsec as Mega
 
 data Lex
-  = LexEmacs
-  | LexJson
+  = LexQuotedEmacs
+  | LexUnquotedEmacs
   deriving (Eq, Show)
 
 data Config = Config
@@ -23,14 +32,43 @@ main = do
       "0"
       "Hell"
       "A shell"
-      (flag
-         Nothing
-         (Just LexEmacs)
-         (help "Lex stdin and output token info for Emacs" <> long "lex-emacs") <|>
-       flag
-         Nothing
-         (Just LexJson)
-         (help "Lex stdin and output JSON for an editor to read" <>
-          long "lex-json"))
+      (Config <$>
+       (flag
+          Nothing
+          (Just LexQuotedEmacs)
+          (help "Lex stdin as shell commands and output token info for Emacs" <>
+           long "lex-commands-emacs") <|>
+        flag
+          Nothing
+          (Just LexUnquotedEmacs)
+          (help "Lex stdin as pure code and output token info for Emacs" <>
+           long "lex-pure-emacs")))
       empty
-  print opts
+  case configLex opts of
+    Nothing -> pure ()
+    Just LexQuotedEmacs ->
+      S.interact (tokensToEmacs . lexQuotedByteString "<interactive>")
+    Just LexUnquotedEmacs ->
+      S.interact (tokensToEmacs . lexUnquotedByteString "<interactive>")
+
+tokensToEmacs :: Either String (Seq LToken) -> ByteString
+tokensToEmacs xs =
+  "(" <> S.intercalate "\n " (map fromToken (either (const []) toList xs)) <>
+  ")\n"
+  where
+    fromToken ltoken =
+      "(" <> S.intercalate " " (map (\(k, v) -> ":" <> k <> " " <> v) keys) <>
+      ")"
+      where
+        keys =
+          [ ( "start-line"
+            , S8.pack (show (Mega.unPos (Mega.sourceLine (ltokenStart ltoken)))))
+          , ( "start-column"
+            , S8.pack
+                (show (Mega.unPos (Mega.sourceColumn (ltokenStart ltoken)))))
+          , ( "end-line"
+            , S8.pack (show (Mega.unPos (Mega.sourceLine (ltokenEnd ltoken)))))
+          , ( "end-column"
+            , S8.pack (show (Mega.unPos (Mega.sourceColumn (ltokenEnd ltoken)))))
+          , ("type", S8.pack (show (toConstr (ltokenToken ltoken))))
+          ]

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -9,8 +10,8 @@ module Hell.Types where
 import           Control.Concurrent (ThreadId)
 import           Data.ByteString (ByteString)
 import           Data.Conduit (ConduitT)
+import           Data.Data
 import           Data.Foldable
-import           Data.Proxy
 import           Data.Sequence (Seq((:<|)))
 import qualified Data.Sequence as Seq
 import           Data.Text (Text)
@@ -61,39 +62,42 @@ data To
   | ToFile FilePath
   | ToFileAppend FilePath
 
+-- | A located token.
 data LToken = LToken
   { ltokenStart :: !Mega.SourcePos
   , ltokenEnd :: !Mega.SourcePos
   , ltokenToken :: !Token
   } deriving (Show, Eq, Ord)
 
+-- | Lexical tokens for the Hell language.
 data Token
-  = SpliceBegin
-  | SpliceEnd
-  | SpliceVar !ByteString
-  | QuoteBegin
-  | QuoteEnd
-  | Quoted !ByteString
-  | Unquoted !ByteString
-  | StringLiteral !ByteString
-  | Comment !ByteString
-  | LowerWord !ByteString
-  | Equals
-  | Let
-  | OpenBracket
-  | CloseBracket
-  | OpenParen
-  | CloseParen
-  | Number !Integer
-  | Comma
-  | Semi
-  | Ampersand
-  | Where
-  | Greater
-  | DoubleGreater
-  | Bar
-  deriving (Show, Eq, Ord)
+  = SpliceBeginToken
+  | SpliceEndToken
+  | SpliceVarToken !ByteString
+  | QuoteBeginToken
+  | QuoteEndToken
+  | QuotedToken !ByteString
+  | UnquotedToken !ByteString
+  | StringLiteralToken !ByteString
+  | CommentToken !ByteString
+  | LowerWordToken !ByteString
+  | EqualsToken
+  | LetToken
+  | OpenBracketToken
+  | CloseBracketToken
+  | OpenParenToken
+  | CloseParenToken
+  | NumberToken !Integer
+  | CommaToken
+  | SemiToken
+  | AmpersandToken
+  | WhereToken
+  | GreaterToken
+  | DoubleGreaterToken
+  | BarToken
+  deriving (Show, Eq, Ord, Data)
 
+-- | This instance gives support to parse LTokens with megaparsec.
 instance Mega.Stream (Seq LToken) where
   type Token (Seq LToken) = LToken
   type Tokens (Seq LToken) = Seq LToken
