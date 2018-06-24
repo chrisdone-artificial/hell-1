@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -14,9 +16,12 @@ import           Data.ByteString (ByteString)
 import           Data.Conduit (ConduitT)
 import           Data.Data
 import           Data.Foldable
+import           Data.Monoid
 import           Data.Sequence (Seq((:<|)))
 import qualified Data.Sequence as Seq
 import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Prelude hiding (error)
 import           System.Exit (ExitCode)
 import qualified Text.Megaparsec as Mega
@@ -81,12 +86,10 @@ data Token
   | QuotedToken !ByteString
   | SubBeginToken
   | SubEndToken
-  | UnquotedToken !ByteString
   | StringLiteralToken !ByteString
   | CommentToken !ByteString
   | LowerWordToken !ByteString
   | EqualsToken
-  | LetToken
   | OpenBracketToken
   | CloseBracketToken
   | OpenParenToken
@@ -95,11 +98,43 @@ data Token
   | CommaToken
   | SemiToken
   | AmpersandToken
-  | WhereToken
   | GreaterToken
   | DoubleGreaterToken
   | BarToken
   deriving (Show, Eq, Ord, Data)
+
+instance Mega.ShowToken (Located Token) where
+  showTokens = unwords . map (showToken . locatedThing) . toList
+
+showToken :: Token -> String
+showToken =
+  \case
+    SpliceBeginToken -> quote "open splice" "${"
+    SpliceEndToken -> quote "splice end" "}"
+    SpliceVarToken !sv ->
+      quote "variable splice" ("$" <> T.unpack (T.decodeUtf8 sv))
+    QuoteBeginToken -> quote "begin quote" "{"
+    QuoteEndToken -> quote "end quote" "}"
+    QuotedToken !q -> quote "quoted content " (T.unpack (T.decodeUtf8 q))
+    SubBeginToken -> quote "begin substitution" "$("
+    SubEndToken -> quote "end substitution" ")"
+    StringLiteralToken !s -> quote "string literal" (show s)
+    CommentToken !c -> quote "comment" ("#" <> T.unpack (T.decodeUtf8 c))
+    LowerWordToken !w -> quote "word" (T.unpack (T.decodeUtf8 w))
+    EqualsToken -> quote "equals" "="
+    OpenBracketToken -> quote "open bracket" "["
+    CloseBracketToken -> quote "closing bracket" "]"
+    OpenParenToken -> quote "opening paren" "("
+    CloseParenToken -> quote "closing paren" ")"
+    NumberToken !i -> quote "number" (show i)
+    CommaToken -> quote "comma" ","
+    SemiToken -> quote "semicolon" ";"
+    AmpersandToken -> quote "ampersand" "&"
+    GreaterToken -> quote "greater than" ">"
+    DoubleGreaterToken -> quote "double greater than" ">>"
+    BarToken -> quote "pipe" "|"
+  where
+    quote label thing = label ++ " ‘" ++ thing ++ "’"
 
 -- | This instance gives support to parse LTokens with megaparsec.
 instance Ord a => Mega.Stream (Seq (Located a)) where
