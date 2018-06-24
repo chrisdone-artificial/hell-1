@@ -16,6 +16,7 @@ library
   exposed-modules:     Hell
                        Hell.Types
                        Hell.Lexer
+                       Hell.Parser
                        Hell.Interpreter
   build-depends:       base >= 4.7 && < 5,
                        bytestring,

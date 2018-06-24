@@ -10,18 +10,18 @@ import           Data.Void
 import           Hell.Types
 import qualified Text.Megaparsec as Mega
 
--- | Parse LTokens into an AST.
-type  Parser = Mega.Parsec Void (Seq LToken)
+-- | Parse (Located Token)s into an AST.
+type  Parser = Mega.Parsec Void (Seq (Located Token))
 
 data Expression = VariableExpression !ByteString
 
-unquotedParser :: FilePath -> Seq LToken -> Either (Mega.ParseError LToken ()) ()
+unquotedParser :: FilePath -> Seq (Located Token) -> Either (Mega.ParseError (Located Token) ()) ()
 unquotedParser fp toks = Mega.parse (pure ()) fp toks
 
 lowerWordParser :: Parser (Located ByteString)
 lowerWordParser =
   Mega.token
     (\case
-       l@(Located {locatedThing = token}) -> Right (fmap (const token) l)
-       _ -> Left Nothing)
+       l@(Located {locatedThing = LowerWordToken token}) -> Right (fmap (const token) l)
+       _ -> Left (Nothing, mempty))
     Nothing
