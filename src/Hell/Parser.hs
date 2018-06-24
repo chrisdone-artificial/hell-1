@@ -13,6 +13,7 @@ module Hell.Parser
   ) where
 
 import           CaseOf
+import           Control.Applicative
 import           Data.ByteString (ByteString)
 import           Data.Foldable
 import qualified Data.List.NonEmpty as NE
@@ -51,13 +52,19 @@ parseQuoted fp toks = Mega.parse shellParser fp toks
 -- | A parser for some shell pipeline.
 shellParser :: Parser SomeShell
 shellParser = do
-  fmap SomeShell sequenceParser
+  sequenceParser
 
-sequenceParser :: Parser (Shell ByteString ByteString ExitCode)
+sequenceParser :: Parser SomeShell
 sequenceParser = do
   x <- pipeParser
-  xs <- Mega.many (semiParser *> pipeParser)
-  pure (foldl Sequence x xs)
+  sequenced x <|> backgrounded x <|> pure (SomeShell x)
+  where
+    sequenced x =
+      semiParser *>
+      (do y <- sequenceParser
+          case y of
+            SomeShell y' -> pure (SomeShell (Sequence x y')))
+    backgrounded x = ampersandParser *> pure (SomeShell (Background x))
 
 pipeParser :: Parser (Shell ByteString ByteString ExitCode)
 pipeParser = do

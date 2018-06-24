@@ -59,7 +59,7 @@ data Shell i o r where
   -- ^ Run a pure Haskell conduit.
 
 data SomeShell =
-  forall i o r. SomeShell (Shell i o r)
+  forall r. SomeShell (Shell ByteString ByteString r)
 
 -- | Redirection of a process output.
 data Redirect
