@@ -58,12 +58,22 @@ main = do
   case configLex opts of
     Nothing ->
       case configCommand opts of
-        Nothing -> pure ()
+        Nothing -> promptLoop
         Just cmd -> interpretSomeShell stdin stdout stderr cmd
     Just LexQuotedEmacs ->
       S.interact (tokensToEmacs . lexQuotedByteString "<interactive>")
     Just LexUnquotedEmacs ->
       S.interact (tokensToEmacs . lexUnquotedByteString "<interactive>")
+
+promptLoop :: IO ()
+promptLoop = do
+  hSetBuffering stdout NoBuffering
+  S8.putStr "$ "
+  line <- S8.getLine
+  case parseQuotedByteString "<stdin>" line of
+    Left e -> hPutStrLn stderr e
+    Right cmd -> interpretSomeShell stdin stdout stderr cmd
+  promptLoop
 
 tokensToEmacs :: Either String (Seq (Located Token)) -> ByteString
 tokensToEmacs xs =
