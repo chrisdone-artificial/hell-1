@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | Parser for the Hell language.
 
 module Hell.Parser where
@@ -16,5 +18,10 @@ data Expression = VariableExpression !ByteString
 unquotedParser :: FilePath -> Seq LToken -> Either (Mega.ParseError LToken ()) ()
 unquotedParser fp toks = Mega.parse (pure ()) fp toks
 
-lowerWordParser :: Parser LToken
-lowerWordParser = undefined
+lowerWordParser :: Parser (Located ByteString)
+lowerWordParser =
+  Mega.token
+    (\case
+       l@(Located {locatedThing = token}) -> Right (fmap (const token) l)
+       _ -> Left Nothing)
+    Nothing

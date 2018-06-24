@@ -41,12 +41,22 @@ lexer =
              "Quotation"
              (lexed
                 "{ foo; bar }"
-                [QuoteBeginToken, QuotedToken "foo", SemiToken, QuotedToken "bar", QuoteEndToken])
+                [ QuoteBeginToken
+                , QuotedToken "foo"
+                , SemiToken
+                , QuotedToken "bar"
+                , QuoteEndToken
+                ])
            it
              "Quotation with variable splice"
              (lexed
                 "{ foo; $bar }"
-                [QuoteBeginToken, QuotedToken "foo", SemiToken, SpliceVarToken "bar", QuoteEndToken])
+                [ QuoteBeginToken
+                , QuotedToken "foo"
+                , SemiToken
+                , SpliceVarToken "bar"
+                , QuoteEndToken
+                ])
            it
              "Quotation with code splice"
              (lexed
@@ -68,4 +78,4 @@ lexer =
     lexed i y =
       case Mega.runParser (lexUnquoted <* Mega.eof) "" i of
         Left e -> error (Mega.parseErrorPretty' i e)
-        Right x -> shouldBe (map ltokenToken (toList x)) y
+        Right x -> shouldBe (map locatedThing (toList x)) y

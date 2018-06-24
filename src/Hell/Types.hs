@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -63,11 +65,11 @@ data To
   | ToFileAppend FilePath
 
 -- | A located token.
-data LToken = LToken
-  { ltokenStart :: !Mega.SourcePos
-  , ltokenEnd :: !Mega.SourcePos
-  , ltokenToken :: !Token
-  } deriving (Show, Eq, Ord)
+data Located l = Located
+  { locatedStart :: !Mega.SourcePos
+  , locatedEnd :: !Mega.SourcePos
+  , locatedThing :: !l
+  } deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
 
 -- | Lexical tokens for the Hell language.
 data Token
@@ -100,21 +102,21 @@ data Token
   deriving (Show, Eq, Ord, Data)
 
 -- | This instance gives support to parse LTokens with megaparsec.
-instance Mega.Stream (Seq LToken) where
-  type Token (Seq LToken) = LToken
-  type Tokens (Seq LToken) = Seq LToken
+instance Ord a => Mega.Stream (Seq (Located a)) where
+  type Token (Seq (Located a)) = Located a
+  type Tokens (Seq (Located a)) = Seq (Located a)
   tokenToChunk Proxy = pure
   tokensToChunk Proxy = Seq.fromList
   chunkToTokens Proxy = toList
   chunkLength Proxy = length
   chunkEmpty Proxy = null
-  positionAt1 Proxy _ (LToken start _ _) = start
+  positionAt1 Proxy _ (Located start _ _) = start
   positionAtN Proxy pos Seq.Empty = pos
-  positionAtN Proxy _ (LToken start _ _ :<| _) = start
-  advance1 Proxy _ _ (LToken _ end _) = end
+  positionAtN Proxy _ (Located start _ _ :<| _) = start
+  advance1 Proxy _ _ (Located _ end _) = end
   advanceN Proxy _ pos Seq.Empty = pos
   advanceN Proxy _ _ ts =
-    let LToken _ end _ = last (toList ts) in end
+    let Located _ end _ = last (toList ts) in end
   take1_ Seq.Empty = Nothing
   take1_ (t :<| ts) = Just (t, ts)
   takeN_ n s

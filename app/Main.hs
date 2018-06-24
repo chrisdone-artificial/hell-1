@@ -51,24 +51,24 @@ main = do
     Just LexUnquotedEmacs ->
       S.interact (tokensToEmacs . lexUnquotedByteString "<interactive>")
 
-tokensToEmacs :: Either String (Seq LToken) -> ByteString
+tokensToEmacs :: Either String (Seq (Located Token)) -> ByteString
 tokensToEmacs xs =
   "(" <> S.intercalate "\n " (map fromToken (either (const []) toList xs)) <>
   ")\n"
   where
-    fromToken ltoken =
+    fromToken located =
       "(" <> S.intercalate " " (map (\(k, v) -> ":" <> k <> " " <> v) keys) <>
       ")"
       where
         keys =
           [ ( "start-line"
-            , S8.pack (show (Mega.unPos (Mega.sourceLine (ltokenStart ltoken)))))
+            , S8.pack (show (Mega.unPos (Mega.sourceLine (locatedStart located)))))
           , ( "start-column"
             , S8.pack
-                (show (Mega.unPos (Mega.sourceColumn (ltokenStart ltoken)))))
+                (show (Mega.unPos (Mega.sourceColumn (locatedStart located)))))
           , ( "end-line"
-            , S8.pack (show (Mega.unPos (Mega.sourceLine (ltokenEnd ltoken)))))
+            , S8.pack (show (Mega.unPos (Mega.sourceLine (locatedEnd located)))))
           , ( "end-column"
-            , S8.pack (show (Mega.unPos (Mega.sourceColumn (ltokenEnd ltoken)))))
-          , ("type", S8.pack (show (toConstr (ltokenToken ltoken))))
+            , S8.pack (show (Mega.unPos (Mega.sourceColumn (locatedEnd located)))))
+          , ("type", S8.pack (show (toConstr (locatedThing located))))
           ]

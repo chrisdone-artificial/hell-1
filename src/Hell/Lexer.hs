@@ -27,21 +27,21 @@ import           Text.Megaparsec.Error
 type Lexer = Mega.Parsec Void ByteString
 
 -- | Open the file strictly and lex it.
-lexUnquotedByteString :: FilePath -> ByteString -> Either String (Seq LToken)
+lexUnquotedByteString :: FilePath -> ByteString -> Either String (Seq (Located Token))
 lexUnquotedByteString fp bs =
   case Mega.runParser (Mega.space *> lexUnquoted <* Mega.eof) fp bs of
     Left e -> Left (parseErrorPretty' bs e)
     Right x -> Right x
 
 -- | Open the file strictly and lex it.
-lexQuotedByteString :: FilePath -> ByteString -> Either String (Seq LToken)
+lexQuotedByteString :: FilePath -> ByteString -> Either String (Seq (Located Token))
 lexQuotedByteString fp bs =
   case Mega.runParser (Mega.space *> lexQuoted <* Mega.eof) fp bs of
     Left e -> Left (parseErrorPretty' bs e)
     Right x -> Right x
 
 -- | Lex quoted code e.g. @ls -alh@.
-lexQuoted :: Lexer (Seq LToken)
+lexQuoted :: Lexer (Seq (Located Token))
 lexQuoted =
   fmap
     mconcat
@@ -97,7 +97,7 @@ lexQuoted =
       c == '#' || c == ' ' || c == ';' || c == ')' || c == '(' || c == '{'
 
 -- | Lex unquoted regular code e.g. @let x = 1@.
-lexUnquoted :: Lexer (Seq LToken)
+lexUnquoted :: Lexer (Seq (Located Token))
 lexUnquoted =
   fmap
     mconcat
@@ -136,14 +136,14 @@ lexUnquoted =
            , CommaToken <$ Mega.char (c2w ',')
            ])
 
-lexComment :: Lexer LToken
+lexComment :: Lexer (Located Token)
 lexComment =
   located
     (CommentToken <$>
      (Mega.char (c2w '#') *>
       Mega.takeWhileP Nothing (not . (\c -> c == '\r' || c == '\n') . w2c)))
 
-lexString :: Lexer LToken
+lexString :: Lexer (Located Token)
 lexString =
   located
     (StringLiteralToken <$>
@@ -157,9 +157,9 @@ c2w = fromIntegral . fromEnum
 w2c :: Word8 -> Char
 w2c = toEnum . fromIntegral
 
-located :: Mega.MonadParsec e s m => m Token -> m LToken
+located :: Mega.MonadParsec e s m => m Token -> m (Located Token)
 located m = do
   start <- Mega.getPosition
   v <- m
   end <- Mega.getPosition
-  pure (LToken start end v)
+  pure (Located start end v)
