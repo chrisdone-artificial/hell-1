@@ -49,9 +49,26 @@ parseQuoted ::
   -> Either (Mega.ParseError (Located Token) Void) SomeShell
 parseQuoted fp toks = Mega.parse shellParser fp toks
 
+-- | A parser for some shell pipeline.
 shellParser :: Parser SomeShell
-shellParser = fmap SomeShell commandParser
+shellParser = do
+  fmap SomeShell sequenceParser
 
+sequenceParser :: Parser (Shell ByteString ByteString ExitCode)
+sequenceParser = do
+  commands <- Mega.sepBy pipeParser semiParser
+  case commands of
+    [] -> error "Make a parser error"
+    (x:xs) -> pure (foldl Sequence x xs)
+
+pipeParser :: Parser (Shell ByteString ByteString ExitCode)
+pipeParser = do
+  commands <- Mega.sepBy commandParser barParser
+  case commands of
+    [] -> error "Make a parser error"
+    (x:xs) -> pure (foldl Pipe x xs)
+
+-- | Parser for a shell command.
 commandParser :: Parser (Shell ByteString ByteString ExitCode)
 commandParser = do
   cmdargs <- Mega.takeWhile1P Nothing ($(isCaseOf 'QuotedToken) . locatedThing)
