@@ -25,6 +25,15 @@ import           System.Process.Typed
 --------------------------------------------------------------------------------
 -- Interpreter
 
+-- | Interpret some shell.
+interpretSomeShell ::
+     Handle -- ^ Input stream.
+  -> Handle -- ^ Output stream.
+  -> Handle -- ^ Err stream.
+  -> SomeShell -- ^ Shell to run.
+  -> IO () -- ^ Output from the shell.
+interpretSomeShell i o e (SomeShell s) = void (interpret i o e s)
+
 -- | Interpret a shell.
 interpret ::
      Handle -- ^ Input stream.

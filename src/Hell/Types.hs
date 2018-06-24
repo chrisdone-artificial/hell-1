@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -56,6 +57,9 @@ data Shell i o r where
 
   Conduit :: ConduitT ByteString ByteString IO () -> Shell ByteString ByteString ()
   -- ^ Run a pure Haskell conduit.
+
+data SomeShell =
+  forall i o r. SomeShell (Shell i o r)
 
 -- | Redirection of a process output.
 data Redirect

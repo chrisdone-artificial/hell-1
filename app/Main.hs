@@ -11,9 +11,14 @@ import           Data.Data
 import           Data.Foldable
 import           Data.Monoid
 import           Data.Sequence (Seq)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import           Hell.Interpreter
 import           Hell.Lexer
+import           Hell.Parser
 import           Hell.Types
 import           Options.Applicative.Simple
+import           System.IO
 import qualified Text.Megaparsec as Mega
 
 data Lex
@@ -23,7 +28,8 @@ data Lex
 
 data Config = Config
   { configLex :: Maybe Lex
-  } deriving (Show)
+  , configCommand :: Maybe SomeShell
+  }
 
 main :: IO ()
 main = do
@@ -42,10 +48,18 @@ main = do
           Nothing
           (Just LexUnquotedEmacs)
           (help "Lex stdin as pure code and output token info for Emacs" <>
-           long "lex-pure-emacs")))
+           long "lex-pure-emacs")) <*>
+       optional
+         (option
+            (eitherReader
+               (parseQuotedByteString "<command>" . T.encodeUtf8 . T.pack))
+            (short 'c' <> long "command" <> help "Command pipeline to run")))
       empty
   case configLex opts of
-    Nothing -> pure ()
+    Nothing ->
+      case configCommand opts of
+        Nothing -> pure ()
+        Just cmd -> interpretSomeShell stdin stdout stderr cmd
     Just LexQuotedEmacs ->
       S.interact (tokensToEmacs . lexQuotedByteString "<interactive>")
     Just LexUnquotedEmacs ->

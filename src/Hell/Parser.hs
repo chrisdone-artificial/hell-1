@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -7,37 +8,61 @@
 -- | Parser for the Hell language.
 
 module Hell.Parser
-  ( parseUnquotedByteString
-  , parseUnquoted
+  ( parseQuotedByteString
+  , parseQuoted
   ) where
 
 import           CaseOf
 import           Data.ByteString (ByteString)
+import           Data.Foldable
 import qualified Data.List.NonEmpty as NE
-import           Data.Sequence (Seq)
+import           Data.Maybe
+import           Data.Sequence (Seq((:<|)))
+import qualified Data.Text.Encoding as T
 import           Data.Void
 import           Hell.Lexer
 import           Hell.Types
+import           System.Exit
 import qualified Text.Megaparsec as Mega
 
 -- | Parse (Located Token)s into an AST.
-type  Parser = Mega.Parsec Void (Seq (Located Token))
+type Parser = Mega.Parsec Void (Seq (Located Token))
 
-parseUnquotedByteString ::
-     FilePath -> ByteString -> Either String (Located ByteString)
-parseUnquotedByteString fp bs =
-  case lexUnquotedByteString fp bs of
+--------------------------------------------------------------------------------
+-- Quoted code parsers
+
+-- | Parse a quoted string like @ls -alh@.
+parseQuotedByteString ::
+     FilePath -> ByteString -> Either String SomeShell
+parseQuotedByteString fp bs =
+  case lexQuotedByteString fp bs of
     Left e -> Left e
     Right toks ->
-      case parseUnquoted fp toks of
+      case parseQuoted fp toks of
         Right k -> pure k
         Left e -> Left (Mega.parseErrorPretty e)
 
-parseUnquoted ::
+-- | Parse a quoted set of tokens like @ls -alh@.
+parseQuoted ::
      FilePath
   -> Seq (Located Token)
-  -> Either (Mega.ParseError (Located Token) Void) (Located ByteString)
-parseUnquoted fp toks = Mega.parse lowerWordParser fp toks
+  -> Either (Mega.ParseError (Located Token) Void) SomeShell
+parseQuoted fp toks = Mega.parse shellParser fp toks
+
+shellParser :: Parser SomeShell
+shellParser = fmap SomeShell commandParser
+
+commandParser :: Parser (Shell ByteString ByteString ExitCode)
+commandParser = do
+  cmdargs <- Mega.takeWhile1P Nothing ($(isCaseOf 'QuotedToken) . locatedThing)
+  case cmdargs of
+    (Located {locatedThing = QuotedToken cmd} :<| args) ->
+      let args' =
+            mapMaybe
+              (fmap T.decodeUtf8 . $(maybeCaseOf 'QuotedToken) . locatedThing)
+              (toList args)
+       in pure (Command (T.decodeUtf8 cmd) args')
+    _ -> error "Interal bug."
 
 --------------------------------------------------------------------------------
 -- Token parser combinators
