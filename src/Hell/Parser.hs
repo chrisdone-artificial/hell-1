@@ -16,8 +16,7 @@ import           CaseOf
 import           Data.ByteString (ByteString)
 import           Data.Foldable
 import qualified Data.List.NonEmpty as NE
-import           Data.Maybe
-import           Data.Sequence (Seq((:<|)))
+import           Data.Sequence (Seq())
 import qualified Data.Text.Encoding as T
 import           Data.Void
 import           Hell.Lexer
@@ -56,30 +55,25 @@ shellParser = do
 
 sequenceParser :: Parser (Shell ByteString ByteString ExitCode)
 sequenceParser = do
-  commands <- Mega.sepBy pipeParser semiParser
-  case commands of
-    [] -> error "Make a parser error"
-    (x:xs) -> pure (foldl Sequence x xs)
+  x <- pipeParser
+  xs <- Mega.many (semiParser *> pipeParser)
+  pure (foldl Sequence x xs)
 
 pipeParser :: Parser (Shell ByteString ByteString ExitCode)
 pipeParser = do
-  commands <- Mega.sepBy commandParser barParser
-  case commands of
-    [] -> error "Make a parser error"
-    (x:xs) -> pure (foldl Pipe x xs)
+  x <- commandParser
+  xs <- Mega.many (barParser *> commandParser)
+  pure (foldl Pipe x xs)
 
 -- | Parser for a shell command.
 commandParser :: Parser (Shell ByteString ByteString ExitCode)
 commandParser = do
-  cmdargs <- Mega.takeWhile1P Nothing ($(isCaseOf 'QuotedToken) . locatedThing)
-  case cmdargs of
-    (Located {locatedThing = QuotedToken cmd} :<| args) ->
-      let args' =
-            mapMaybe
-              (fmap T.decodeUtf8 . $(maybeCaseOf 'QuotedToken) . locatedThing)
-              (toList args)
-       in pure (Command (T.decodeUtf8 cmd) args')
-    _ -> error "Interal bug."
+  cmd <- quotedParser
+  args <- Mega.many quotedParser
+  pure
+    (Command
+       (T.decodeUtf8 (locatedThing cmd))
+       (map (T.decodeUtf8 . locatedThing) (toList args)))
 
 --------------------------------------------------------------------------------
 -- Token parser combinators
