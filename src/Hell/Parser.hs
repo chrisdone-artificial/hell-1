@@ -7,6 +7,7 @@ module Hell.Parser where
 import           Data.ByteString (ByteString)
 import           Data.Sequence (Seq)
 import           Data.Void
+import           Hell.Lexer
 import           Hell.Types
 import qualified Text.Megaparsec as Mega
 
@@ -15,8 +16,17 @@ type  Parser = Mega.Parsec Void (Seq (Located Token))
 
 data Expression = VariableExpression !ByteString
 
-unquotedParser :: FilePath -> Seq (Located Token) -> Either (Mega.ParseError (Located Token) ()) ()
-unquotedParser fp toks = Mega.parse (pure ()) fp toks
+parseUnquotedByteString :: FilePath -> ByteString -> Either String (Located ByteString)
+parseUnquotedByteString fp bs =
+  case lexUnquotedByteString fp bs of
+    Left e -> Left e
+    Right toks ->
+      case parseUnquoted fp toks of
+        Right k -> pure k
+        Left e -> Left "parse error"
+
+parseUnquoted :: FilePath -> Seq (Located Token) -> Either (Mega.ParseError (Located Token) Void) (Located ByteString)
+parseUnquoted fp toks = Mega.parse lowerWordParser fp toks
 
 lowerWordParser :: Parser (Located ByteString)
 lowerWordParser =
