@@ -17,6 +17,7 @@ import           Data.ByteString (ByteString)
 import           Data.Foldable
 import qualified Data.List.NonEmpty as NE
 import           Data.Sequence (Seq())
+import           Data.Text (Text)
 import qualified Data.Text.Encoding as T
 import           Data.Void
 import           Hell.Lexer
@@ -80,8 +81,8 @@ commandParser = do
   args <- Mega.many quotedParser
   pure
     (Command
-       (T.decodeUtf8 (locatedThing cmd))
-       (map (T.decodeUtf8 . locatedThing) (toList args)))
+       (locatedThing cmd)
+       (map locatedThing (toList args)))
 
 --------------------------------------------------------------------------------
 -- Token parser combinators
@@ -101,8 +102,8 @@ commandParser = do
 -- quoteEndParser :: Parser (Located ())
 -- quoteEndParser = expect $(maybeCaseOf 'QuoteEndToken)
 
-quotedParser :: Parser (Located ByteString)
-quotedParser = expect $(maybeCaseOf 'QuotedToken)
+quotedParser :: Parser (Located Text)
+quotedParser = expect $(maybeCaseOf 'QuotedToken) >>= utf8Text
 
 -- subBeginParser :: Parser (Located ())
 -- subBeginParser = expect $(maybeCaseOf 'SubBeginToken)
@@ -163,3 +164,9 @@ expect f =
          | Just token <- f tok -> Right (fmap (const token) l)
        l -> Left (Just (Mega.Tokens (NE.fromList [l])), mempty))
     Nothing
+
+utf8Text :: Located ByteString -> Parser (Located Text)
+utf8Text lstr =
+  case T.decodeUtf8' (locatedThing lstr) of
+    Left _ -> fail ("Invalid UTF-8 string: " ++ show (locatedThing lstr))
+    Right v -> pure (fmap (const v) lstr)
