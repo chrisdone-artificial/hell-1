@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -XNoMonomorphismRestriction #-}
 {-# LANGUAGE LambdaCase #-}
 
 -- | Parser for the Hell language.
@@ -42,7 +41,7 @@ parseQuotedByteString fp bs =
         Right k -> pure k
         Left e -> Left (Mega.parseErrorPretty e)
 
--- | Parse a quoted set of tokens like @ls -alh@.
+-- | Parse a quoted set of tokens like @ls -ali@.
 parseQuoted ::
      FilePath
   -> Seq (Located Token)
@@ -54,6 +53,7 @@ shellParser :: Parser SomeShell
 shellParser = do
   sequenceParser
 
+-- | Parser for a sequence of commands e.g. @x | y | z; second; third@.
 sequenceParser :: Parser SomeShell
 sequenceParser = do
   x <- pipeParser
@@ -66,13 +66,14 @@ sequenceParser = do
             SomeShell y' -> pure (SomeShell (Sequence x y')))
     backgrounded x = ampersandParser *> pure (SomeShell (Background x))
 
+-- | Parser for a pipe of commands e.g. @x | y | z@.
 pipeParser :: Parser (Shell ByteString ByteString ExitCode)
 pipeParser = do
   x <- commandParser
   xs <- Mega.many (barParser *> commandParser)
   pure (foldl Pipe x xs)
 
--- | Parser for a shell command.
+-- | Parser for a shell command e.g. @ls -alh@.
 commandParser :: Parser (Shell ByteString ByteString ExitCode)
 commandParser = do
   cmd <- quotedParser
@@ -85,59 +86,59 @@ commandParser = do
 --------------------------------------------------------------------------------
 -- Token parser combinators
 
-spliceBeginParser :: Parser (Located ())
-spliceBeginParser = expect $(maybeCaseOf 'SpliceBeginToken)
+-- spliceBeginParser :: Parser (Located ())
+-- spliceBeginParser = expect $(maybeCaseOf 'SpliceBeginToken)
 
-spliceEndParser :: Parser (Located ())
-spliceEndParser = expect $(maybeCaseOf 'SpliceEndToken)
+-- spliceEndParser :: Parser (Located ())
+-- spliceEndParser = expect $(maybeCaseOf 'SpliceEndToken)
 
-spliceVarParser :: Parser (Located ByteString)
-spliceVarParser = expect $(maybeCaseOf 'SpliceVarToken)
+-- spliceVarParser :: Parser (Located ByteString)
+-- spliceVarParser = expect $(maybeCaseOf 'SpliceVarToken)
 
-quoteBeginParser :: Parser (Located ())
-quoteBeginParser = expect $(maybeCaseOf 'QuoteBeginToken)
+-- quoteBeginParser :: Parser (Located ())
+-- quoteBeginParser = expect $(maybeCaseOf 'QuoteBeginToken)
 
-quoteEndParser :: Parser (Located ())
-quoteEndParser = expect $(maybeCaseOf 'QuoteEndToken)
+-- quoteEndParser :: Parser (Located ())
+-- quoteEndParser = expect $(maybeCaseOf 'QuoteEndToken)
 
 quotedParser :: Parser (Located ByteString)
 quotedParser = expect $(maybeCaseOf 'QuotedToken)
 
-subBeginParser :: Parser (Located ())
-subBeginParser = expect $(maybeCaseOf 'SubBeginToken)
+-- subBeginParser :: Parser (Located ())
+-- subBeginParser = expect $(maybeCaseOf 'SubBeginToken)
 
-subEndParser :: Parser (Located ())
-subEndParser = expect $(maybeCaseOf 'SubEndToken)
+-- subEndParser :: Parser (Located ())
+-- subEndParser = expect $(maybeCaseOf 'SubEndToken)
 
-stringLiteralParser :: Parser (Located ByteString)
-stringLiteralParser = expect $(maybeCaseOf 'StringLiteralToken)
+-- stringLiteralParser :: Parser (Located ByteString)
+-- stringLiteralParser = expect $(maybeCaseOf 'StringLiteralToken)
 
-commentParser :: Parser (Located ByteString)
-commentParser = expect $(maybeCaseOf 'CommentToken)
+-- commentParser :: Parser (Located ByteString)
+-- commentParser = expect $(maybeCaseOf 'CommentToken)
 
-lowerWordParser :: Parser (Located ByteString)
-lowerWordParser = expect $(maybeCaseOf 'LowerWordToken)
+-- lowerWordParser :: Parser (Located ByteString)
+-- lowerWordParser = expect $(maybeCaseOf 'LowerWordToken)
 
-equalsParser :: Parser (Located ())
-equalsParser = expect $(maybeCaseOf 'EqualsToken)
+-- equalsParser :: Parser (Located ())
+-- equalsParser = expect $(maybeCaseOf 'EqualsToken)
 
-openBracketParser :: Parser (Located ())
-openBracketParser = expect $(maybeCaseOf 'OpenBracketToken)
+-- openBracketParser :: Parser (Located ())
+-- openBracketParser = expect $(maybeCaseOf 'OpenBracketToken)
 
-closeBracketParser :: Parser (Located ())
-closeBracketParser = expect $(maybeCaseOf 'CloseBracketToken)
+-- closeBracketParser :: Parser (Located ())
+-- closeBracketParser = expect $(maybeCaseOf 'CloseBracketToken)
 
-openParenParser :: Parser (Located ())
-openParenParser = expect $(maybeCaseOf 'OpenParenToken)
+-- openParenParser :: Parser (Located ())
+-- openParenParser = expect $(maybeCaseOf 'OpenParenToken)
 
-closeParenParser :: Parser (Located ())
-closeParenParser = expect $(maybeCaseOf 'CloseParenToken)
+-- closeParenParser :: Parser (Located ())
+-- closeParenParser = expect $(maybeCaseOf 'CloseParenToken)
 
-numberToken :: Parser (Located Integer)
-numberToken = expect $(maybeCaseOf 'NumberToken)
+-- numberToken :: Parser (Located Integer)
+-- numberToken = expect $(maybeCaseOf 'NumberToken)
 
-commaParser :: Parser (Located ())
-commaParser = expect $(maybeCaseOf 'CommaToken)
+-- commaParser :: Parser (Located ())
+-- commaParser = expect $(maybeCaseOf 'CommaToken)
 
 semiParser :: Parser (Located ())
 semiParser = expect $(maybeCaseOf 'SemiToken)
@@ -145,11 +146,11 @@ semiParser = expect $(maybeCaseOf 'SemiToken)
 ampersandParser :: Parser (Located ())
 ampersandParser = expect $(maybeCaseOf 'AmpersandToken)
 
-greaterParser :: Parser (Located ())
-greaterParser = expect $(maybeCaseOf 'GreaterToken)
+-- greaterParser :: Parser (Located ())
+-- greaterParser = expect $(maybeCaseOf 'GreaterToken)
 
-doubleGreaterParser :: Parser (Located ())
-doubleGreaterParser = expect $(maybeCaseOf 'DoubleGreaterToken)
+-- doubleGreaterParser :: Parser (Located ())
+-- doubleGreaterParser = expect $(maybeCaseOf 'DoubleGreaterToken)
 
 barParser :: Parser (Located ())
 barParser = expect $(maybeCaseOf 'BarToken)
