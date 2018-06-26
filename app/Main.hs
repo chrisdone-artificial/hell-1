@@ -1,9 +1,11 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Main Hell executable.
 
 module Main where
 
+import           Control.Exception
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
@@ -69,13 +71,17 @@ promptLoop :: IO ()
 promptLoop = do
   hSetBuffering stdout NoBuffering
   S8.putStr "$ "
-  line <- S8.getLine
-  if S8.null line
-     then promptLoop
-     else case parseQuotedByteString "<stdin>" line of
+  mline <- try S8.getLine
+  case mline of
+    Left (_ :: IOException) -> pure ()
+    Right line ->
+      if S8.null line
+        then promptLoop
+        else do
+          case parseQuotedByteString "<stdin>" line of
             Left e -> hPutStrLn stderr e
             Right cmd -> interpretSomeShell stdin stdout stderr cmd
-  promptLoop
+          promptLoop
 
 tokensToEmacs :: Either String (Seq (Located Token)) -> ByteString
 tokensToEmacs xs =
