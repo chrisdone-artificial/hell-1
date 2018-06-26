@@ -39,7 +39,7 @@ interpret ::
      Handle -- ^ Input stream.
   -> Handle -- ^ Output stream.
   -> Handle -- ^ Err stream.
-  -> Shell i o r -- ^ Shell to run.
+  -> Shell r -- ^ Shell to run.
   -> IO r -- ^ Output from the shell.
 interpret input output error =
   \case

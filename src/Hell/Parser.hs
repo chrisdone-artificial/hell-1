@@ -68,14 +68,14 @@ sequenceParser = do
     backgrounded x = ampersandParser *> pure (SomeShell (Background x))
 
 -- | Parser for a pipe of commands e.g. @x | y | z@.
-pipeParser :: Parser (Shell ByteString ByteString ExitCode)
+pipeParser :: Parser (Shell ExitCode)
 pipeParser = do
   x <- commandParser
   xs <- Mega.many (barParser *> commandParser)
   pure (foldl Pipe x xs)
 
 -- | Parser for a shell command e.g. @ls -alh@.
-commandParser :: Parser (Shell ByteString ByteString ExitCode)
+commandParser :: Parser (Shell ExitCode)
 commandParser = do
   cmd <- quotedParser
   args <- Mega.many quotedParser
