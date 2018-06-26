@@ -55,8 +55,13 @@ data Shell r where
   Conduit :: ConduitT ByteString ByteString IO () -> Shell ()
   -- ^ Run a pure Haskell conduit.
 
-  ChangeDirectory :: FilePath -> Shell ExitCode
+  ChangeDirectory :: DirectoryChange -> Shell ExitCode
   -- ^ Change default directory of the current process.
+
+-- | A directory change.
+data DirectoryChange
+  = GoHome
+  | Chdir FilePath
 
 data SomeShell =
   forall r. SomeShell (Shell r)

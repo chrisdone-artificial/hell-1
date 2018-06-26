@@ -92,6 +92,13 @@ interpret input output error =
       liftIO (hSetBuffering output NoBuffering)
       runConduit (CB.sourceHandle input .| c .| CB.sinkHandle output)
     ChangeDirectory fp ->
-      catch
-        (ExitSuccess <$ setCurrentDirectory fp)
-        (\(_ :: IOException) -> pure (ExitFailure 1))
+      case fp of
+        Chdir dir ->
+          catch
+            (ExitSuccess <$ setCurrentDirectory dir)
+            (\(_ :: IOException) -> pure (ExitFailure 1))
+        GoHome -> do
+          dir <- getHomeDirectory
+          catch
+            (ExitSuccess <$ setCurrentDirectory dir)
+            (\(_ :: IOException) -> pure (ExitFailure 1))

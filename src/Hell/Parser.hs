@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
@@ -18,6 +19,7 @@ import           Data.Foldable
 import qualified Data.List.NonEmpty as NE
 import           Data.Sequence (Seq())
 import           Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Void
 import           Hell.Lexer
@@ -77,12 +79,15 @@ pipeParser = do
 -- | Parser for a shell command e.g. @ls -alh@.
 commandParser :: Parser (Shell ExitCode)
 commandParser = do
-  cmd <- quotedParser
+  cmd <- fmap locatedThing quotedParser
   args <- Mega.many quotedParser
-  pure
-    (Command
-       (locatedThing cmd)
-       (map locatedThing (toList args)))
+  case cmd of
+    "cd" ->
+      case args of
+        [] -> pure (ChangeDirectory GoHome)
+        [pwd] -> pure (ChangeDirectory (Chdir (T.unpack (locatedThing pwd))))
+        _ -> fail "cd: too many arguments"
+    _ -> pure (Command cmd (map locatedThing (toList args)))
 
 --------------------------------------------------------------------------------
 -- Token parser combinators
