@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
@@ -18,6 +19,8 @@ import qualified Data.Conduit.Binary as CB
 import qualified Data.Text as T
 import           Hell.Types
 import           Prelude hiding (error)
+import           System.Directory
+import           System.Exit
 import           System.IO
 import qualified System.Process as Raw (createPipe)
 import           System.Process.Typed
@@ -49,8 +52,7 @@ interpret input output error =
               setDelegateCtlc True .
               setCloseFds True .
               setStderr (useHandleOpen error) .
-              setStdin (useHandleOpen input) .
-              setStdout (useHandleOpen output)
+              setStdin (useHandleOpen input) . setStdout (useHandleOpen output)
     Sequence x y -> do
       _ <- interpret input output error x
       interpret input output error y
@@ -89,3 +91,7 @@ interpret input output error =
       hSetBuffering input NoBuffering
       liftIO (hSetBuffering output NoBuffering)
       runConduit (CB.sourceHandle input .| c .| CB.sinkHandle output)
+    ChangeDirectory fp ->
+      catch
+        (ExitSuccess <$ setCurrentDirectory fp)
+        (\(_ :: IOException) -> pure (ExitFailure 1))
