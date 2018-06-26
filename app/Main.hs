@@ -70,9 +70,11 @@ promptLoop = do
   hSetBuffering stdout NoBuffering
   S8.putStr "$ "
   line <- S8.getLine
-  case parseQuotedByteString "<stdin>" line of
-    Left e -> hPutStrLn stderr e
-    Right cmd -> interpretSomeShell stdin stdout stderr cmd
+  if S8.null line
+     then promptLoop
+     else case parseQuotedByteString "<stdin>" line of
+            Left e -> hPutStrLn stderr e
+            Right cmd -> interpretSomeShell stdin stdout stderr cmd
   promptLoop
 
 tokensToEmacs :: Either String (Seq (Located Token)) -> ByteString
