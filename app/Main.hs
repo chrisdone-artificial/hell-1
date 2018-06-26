@@ -60,7 +60,8 @@ main = do
   case configLex opts of
     Nothing ->
       case configCommand opts of
-        Nothing -> promptLoop
+        Nothing -> do putStrLn "Welcome to Hell.\n"
+                      promptLoop
         Just cmd -> interpretSomeShell stdin stdout stderr cmd
     Just LexQuotedEmacs ->
       S.interact (tokensToEmacs . lexQuotedByteString "<interactive>")
@@ -69,7 +70,6 @@ main = do
 
 promptLoop :: IO ()
 promptLoop = do
-  putStrLn "Welcome to Hell.\n"
   hSetBuffering stdout NoBuffering
   putStr "$ "
   mline <- try S8.getLine
