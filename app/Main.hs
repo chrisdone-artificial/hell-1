@@ -69,8 +69,9 @@ main = do
 
 promptLoop :: IO ()
 promptLoop = do
+  putStrLn "Welcome to Hell.\n"
   hSetBuffering stdout NoBuffering
-  S8.putStr "$ "
+  putStr "$ "
   mline <- try S8.getLine
   case mline of
     Left (_ :: IOException) -> pure ()
