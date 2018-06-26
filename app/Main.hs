@@ -30,7 +30,7 @@ data Lex
 
 data Config = Config
   { configLex :: Maybe Lex
-  , configCommand :: Maybe SomeShell
+  , configAction :: Maybe SomeAction
   }
 
 main :: IO ()
@@ -39,12 +39,12 @@ main = do
     simpleOptions
       "0"
       "Hell"
-      "A shell"
+      "A action"
       (Config <$>
        (flag
           Nothing
           (Just LexQuotedEmacs)
-          (help "Lex stdin as shell commands and output token info for Emacs" <>
+          (help "Lex stdin as actions and output token info for Emacs" <>
            long "lex-commands-emacs") <|>
         flag
           Nothing
@@ -59,10 +59,10 @@ main = do
       empty
   case configLex opts of
     Nothing ->
-      case configCommand opts of
+      case configAction opts of
         Nothing -> do putStrLn "Welcome to Hell.\n"
                       promptLoop
-        Just cmd -> interpretSomeShell stdin stdout stderr cmd
+        Just cmd -> interpretSomeAction stdin stdout stderr cmd
     Just LexQuotedEmacs ->
       S.interact (tokensToEmacs . lexQuotedByteString "<interactive>")
     Just LexUnquotedEmacs ->
@@ -81,7 +81,7 @@ promptLoop = do
         else do
           case parseQuotedByteString "<stdin>" line of
             Left e -> hPutStrLn stderr e
-            Right cmd -> interpretSomeShell stdin stdout stderr cmd
+            Right cmd -> interpretSomeAction stdin stdout stderr cmd
           promptLoop
 
 tokensToEmacs :: Either String (Seq (Located Token)) -> ByteString

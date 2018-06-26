@@ -29,20 +29,20 @@ import           System.Process.Typed
 -- Interpreter
 
 -- | Interpret some shell.
-interpretSomeShell ::
+interpretSomeAction ::
      Handle -- ^ Input stream.
   -> Handle -- ^ Output stream.
   -> Handle -- ^ Err stream.
-  -> SomeShell -- ^ Shell to run.
+  -> SomeAction -- ^ Action to run.
   -> IO () -- ^ Output from the shell.
-interpretSomeShell i o e (SomeShell s) = void (interpret i o e s)
+interpretSomeAction i o e (SomeAction s) = void (interpret i o e s)
 
 -- | Interpret a shell.
 interpret ::
      Handle -- ^ Input stream.
   -> Handle -- ^ Output stream.
   -> Handle -- ^ Err stream.
-  -> Shell r -- ^ Shell to run.
+  -> Action r -- ^ Action to run.
   -> IO r -- ^ Output from the shell.
 interpret input output error =
   \case

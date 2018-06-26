@@ -1,7 +1,7 @@
 -- | The Hell shell.
 
 module Hell
-  ( Shell(..)
+  ( Action(..)
   , interpret
   , Redirect(..)
   , To(..)

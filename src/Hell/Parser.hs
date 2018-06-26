@@ -35,7 +35,7 @@ type Parser = Mega.Parsec Void (Seq (Located Token))
 
 -- | Parse a quoted string like @ls -alh@.
 parseQuotedByteString ::
-     FilePath -> ByteString -> Either String SomeShell
+     FilePath -> ByteString -> Either String SomeAction
 parseQuotedByteString fp bs =
   case lexQuotedByteString fp bs of
     Left e -> Left e
@@ -48,36 +48,36 @@ parseQuotedByteString fp bs =
 parseQuoted ::
      FilePath
   -> Seq (Located Token)
-  -> Either (Mega.ParseError (Located Token) Void) SomeShell
-parseQuoted fp toks = Mega.parse shellParser fp toks
+  -> Either (Mega.ParseError (Located Token) Void) SomeAction
+parseQuoted fp toks = Mega.parse actionParser fp toks
 
--- | A parser for some shell pipeline.
-shellParser :: Parser SomeShell
-shellParser = do
+-- | A parser for some action pipeline.
+actionParser :: Parser SomeAction
+actionParser = do
   sequenceParser
 
 -- | Parser for a sequence of commands e.g. @x | y | z; second; third@.
-sequenceParser :: Parser SomeShell
+sequenceParser :: Parser SomeAction
 sequenceParser = do
   x <- pipeParser
-  sequenced x <|> backgrounded x <|> pure (SomeShell x)
+  sequenced x <|> backgrounded x <|> pure (SomeAction x)
   where
     sequenced x =
       semiParser *>
       (do y <- sequenceParser
           case y of
-            SomeShell y' -> pure (SomeShell (Sequence x y')))
-    backgrounded x = ampersandParser *> pure (SomeShell (Background x))
+            SomeAction y' -> pure (SomeAction (Sequence x y')))
+    backgrounded x = ampersandParser *> pure (SomeAction (Background x))
 
 -- | Parser for a pipe of commands e.g. @x | y | z@.
-pipeParser :: Parser (Shell ExitCode)
+pipeParser :: Parser (Action ExitCode)
 pipeParser = do
   x <- commandParser
   xs <- Mega.many (barParser *> commandParser)
   pure (foldl Pipe x xs)
 
--- | Parser for a shell command e.g. @ls -alh@.
-commandParser :: Parser (Shell ExitCode)
+-- | Parser for a command e.g. @ls -alh@.
+commandParser :: Parser (Action ExitCode)
 commandParser = do
   cmd <- fmap locatedThing quotedParser
   args <- Mega.many quotedParser

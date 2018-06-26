@@ -27,35 +27,35 @@ import           Prelude hiding (error)
 import           System.Exit (ExitCode)
 import qualified Text.Megaparsec as Mega
 
--- | A shell pipeline.
-data Shell r where
-  Command :: Text -> [Text] -> Shell ExitCode
+-- | A shell action.
+data Action r where
+  Command :: Text -> [Text] -> Action ExitCode
   -- ^ A command reads/writes and returns an exit code.
 
-  Pipe :: Shell _a -> Shell r -> Shell r
+  Pipe :: Action _a -> Action r -> Action r
   -- ^ Piped commands certainly read/write to eachother, but no
   -- constraints other than that.
 
-  Sequence :: Shell _a -> Shell r -> Shell r
+  Sequence :: Action _a -> Action r -> Action r
   -- ^ A sequence of commands doesn't necessarily write anything.
 
-  Redirect :: Shell r -> Redirect -> Shell r
-  -- ^ A redirect may read, must accept a 'Shell' which writes, but
+  Redirect :: Action r -> Redirect -> Action r
+  -- ^ A redirect may read, must accept a 'Action' which writes, but
   -- produces '()' output in its final type, instead writing the
   -- output to a file.
 
-  Background :: Shell r -> Shell ThreadId
+  Background :: Action r -> Action ThreadId
   -- ^ Launch a thread process in the background. Returns the thread
   -- id, produces no pipeable output.
 
-  Substitution :: Shell _o -> (ByteString -> Shell r) -> Shell r
+  Substitution :: Action _o -> (ByteString -> Action r) -> Action r
   -- ^ Run a shell producing an output, consuming no input, and return
   -- value unused. Feed its output into the continuation.
 
-  Conduit :: ConduitT ByteString ByteString IO () -> Shell ()
+  Conduit :: ConduitT ByteString ByteString IO () -> Action ()
   -- ^ Run a pure Haskell conduit.
 
-  ChangeDirectory :: DirectoryChange -> Shell ExitCode
+  ChangeDirectory :: DirectoryChange -> Action ExitCode
   -- ^ Change default directory of the current process.
 
 -- | A directory change.
@@ -63,8 +63,8 @@ data DirectoryChange
   = GoHome
   | Chdir FilePath
 
-data SomeShell =
-  forall r. SomeShell (Shell r)
+data SomeAction =
+  forall r. SomeAction (Action r)
 
 -- | Redirection of a process output.
 data Redirect
