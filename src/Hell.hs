@@ -293,15 +293,17 @@ data UTerm t
 
   -- IRep below: The variables are poly types, they aren't metavars,
   -- and need to be instantiated.
-  | UForall HSE.SrcSpanInfo t [SomeTypeRep] Forall [TH.Uniq] (IRep TH.Uniq) [t]
+  | UForall Prim HSE.SrcSpanInfo t [SomeTypeRep] Forall [TH.Uniq] (IRep TH.Uniq) [t]
   deriving (Traversable, Functor, Foldable)
+
+
 
 typeOf :: UTerm t -> t
 typeOf = \case
   UVar _ t _ -> t
   ULam _ t _ _ _ -> t
   UApp _ t _ _ -> t
-  UForall _ t _ _ _ _ _ -> t
+  UForall _ _ t _ _ _ _ _ -> t
 
 data Binding = Singleton String | Tuple [String]
 
@@ -331,11 +333,13 @@ data Forall where
     (((a -> a) -> Tagged t (Record r) -> Tagged t (Record r)) -> Forall) -> Forall
   Final :: (forall g. Typed (Term g)) -> Forall
 
-lit :: Type.Typeable a => a -> UTerm ()
-lit = litWithSpan HSE.noSrcSpan
+data Prim = LitP (HSE.Literal HSE.SrcSpanInfo) | NameP String | UnitP
 
-litWithSpan :: Type.Typeable a => HSE.SrcSpanInfo -> a -> UTerm ()
-litWithSpan srcSpanInfo l = UForall srcSpanInfo () [] (Final (Typed (Type.typeOf l) (Lit l))) [] (fromSomeStarType (SomeStarType (Type.typeOf l))) []
+lit :: Type.Typeable a => Prim -> a -> UTerm ()
+lit name = litWithSpan name HSE.noSrcSpan
+
+litWithSpan :: Type.Typeable a => Prim -> HSE.SrcSpanInfo -> a -> UTerm ()
+litWithSpan name srcSpanInfo l = UForall name srcSpanInfo () [] (Final (Typed (Type.typeOf l) (Lit l))) [] (fromSomeStarType (SomeStarType (Type.typeOf l))) []
 
 data SomeStarType = forall (a :: Type). SomeStarType (TypeRep a)
 deriving instance Show SomeStarType
@@ -417,7 +421,7 @@ tc (UApp _ _ e1 e2) env =
                _ -> Left TypeCheckMismatch
     Right{} -> Left TypeOfApplicandIsNotFunction
 -- Polytyped terms, must be, syntactically, fully-saturated
-tc (UForall _ _ _ fall _ _ reps0) _env = go reps0 fall where
+tc (UForall _ _ _ _ fall _ _ reps0) _env = go reps0 fall where
   go :: [SomeTypeRep] -> Forall -> Either TypeCheckError (Typed (Term g))
   go [] (Final typed') = pure typed'
   go (StarTypeRep rep:reps) (NoClass f) = go reps (f rep)
@@ -542,11 +546,11 @@ desugarExp globals = go mempty where
       xs' <- traverse (go scope) xs
       pure $ foldr (\x y -> UApp l () (UApp l () (cons' l) x) y) (nil' l) xs'
     HSE.Lit _ lit' -> case lit' of
-      HSE.Char _ char _ -> pure $ lit char
-      HSE.String _ string _ -> pure $ lit $ Text.pack string
-      HSE.Int _ int _ -> pure $ lit (fromIntegral int :: Int)
+      HSE.Char _ char _ -> pure $ lit (LitP lit') char
+      HSE.String _ string _ -> pure $ lit (LitP lit') $ Text.pack string
+      HSE.Int _ int _ -> pure $ lit (LitP lit') (fromIntegral int :: Int)
       HSE.Frac _ _ str | Just dub <- Read.readMaybe str
-        -> pure $ lit (dub :: Double)
+        -> pure $ lit (LitP lit') (dub :: Double)
       _ -> Left $ UnsupportedLiteral
     app@HSE.App{} | Just (qname, tys) <- nestedTyApps app -> do
       reps <- traverse desugarSomeType tys
@@ -613,13 +617,14 @@ desugarPolyQName :: HSE.QName HSE.SrcSpanInfo -> [SomeTypeRep] -> Either Desugar
 desugarPolyQName qname treps =
   case qname of
     HSE.Qual l (HSE.ModuleName _ prefix) (HSE.Ident _ string)
-      | Just (forall', vars, irep, _) <- Map.lookup (prefix ++ "." ++ string) polyLits -> do
-        pure (UForall l () treps forall' vars irep [])
+      | let str = (prefix ++ "." ++ string),
+        Just (forall', vars, irep, _) <- Map.lookup str polyLits -> do
+        pure (UForall (NameP str) l () treps forall' vars irep [])
     HSE.UnQual l (HSE.Symbol _ string)
       | Just (forall', vars, irep, _) <- Map.lookup string polyLits -> do
-        pure (UForall l () treps forall' vars irep [])
+        pure (UForall (NameP string) l () treps forall' vars irep [])
     HSE.Special l (HSE.UnitCon{}) ->
-      pure $ litWithSpan l ()
+      pure $ litWithSpan UnitP l ()
     _ ->  Left $ InvalidVariable $ show qname
 
 desugarArg :: HSE.Pat HSE.SrcSpanInfo -> Either DesugarError (Binding, Maybe SomeStarType)
@@ -1255,7 +1260,7 @@ tuple' _ = error "Bad compile-time lookup for tuple'."
 unsafeGetForall :: String -> HSE.SrcSpanInfo -> UTerm ()
 unsafeGetForall key l = Maybe.fromMaybe (error $ "Bad compile-time lookup for " ++ key) $ do
   (forall', vars, irep, _) <- Map.lookup key polyLits
-  pure (UForall l () [] forall' vars irep [])
+  pure (UForall (NameP key) l () [] forall' vars irep [])
 
 --------------------------------------------------------------------------------
 -- Accessor for ExitCode
@@ -1463,7 +1468,7 @@ elaborate = fmap getEqualities . flip runStateT empty . flip runReaderT mempty .
       body' <- local (Map.union vars) $ go body
       let ty = IFun a (typeOf body')
       pure $ ULam l ty binding mstarType body'
-    UForall l () types forall' uniqs polyRep _ -> do
+    UForall prim l () types forall' uniqs polyRep _ -> do
       -- Generate variables for each unique.
       vars <- for uniqs \uniq -> do
         v <- freshIMetaVar
@@ -1477,7 +1482,7 @@ elaborate = fmap getEqualities . flip runStateT empty . flip runReaderT mempty .
       for_ (zip vars types) \((_uniq, var), someTypeRep) ->
         equal l (fromSomeType someTypeRep) (IVar var)
       -- Done!
-      pure $ UForall l monoType types forall' uniqs polyRep (map (IVar . snd) vars)
+      pure $ UForall prim l monoType types forall' uniqs polyRep (map (IVar . snd) vars)
 
 bindingVars :: HSE.SrcSpanInfo -> IRep IMetaVar -> Binding -> StateT Elaborate (Either ElaborateError) (Map String (IRep IMetaVar))
 bindingVars _ irep (Singleton name) = pure $ Map.singleton name irep
