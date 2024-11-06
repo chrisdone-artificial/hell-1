@@ -20,7 +20,6 @@ module Main (main) where
 -- e.g. 'Data.Graph' becomes 'Graph', and are then exposed to the Hell
 -- guest language as such.
 
-import Data.Containers.ListUtils
 import Language.Haskell.TH.Instances ()
 import Lucid hiding (for_, Term, term)
 
@@ -30,21 +29,13 @@ import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH (Q)
 
-import qualified System.Exit as Exit
 import qualified Data.Graph as Graph
-import qualified Data.Eq as Eq
-import qualified Data.Either as Either
 import qualified Data.Ord as Ord
-import qualified Control.Concurrent as Concurrent
-import qualified System.Timeout as Timeout
-import qualified Data.Bool as Bool
 import qualified Data.Map as Map
-import qualified Data.Aeson.KeyMap as KeyMap
+-- import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.List as List
 import qualified Data.Set as Set
-import qualified Data.Aeson as Json
-import qualified Data.Vector as Vector
-import qualified Text.Show as Show
+-- import qualified Data.Aeson as Json
 import qualified Text.Read as Read
 import qualified Data.Function as Function
 import qualified Data.Generics as SYB
@@ -57,23 +48,19 @@ import qualified Data.ByteString.Builder as ByteString hiding (writeFile)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import qualified Data.Text.Encoding as Text
-import qualified System.IO as IO
-import qualified UnliftIO.Async as Async
-import qualified System.Directory as Dir
 import qualified Options.Applicative as Options
 
 -- Things used within the host language.
 
 import Data.Traversable
-import Data.Bifunctor
 import System.Process.Typed as Process
 import Control.Monad.State.Strict
 import Control.Monad.Reader
 import System.Environment
 import Data.Map.Strict (Map)
 import Data.Set (Set)
-import Data.Vector (Vector)
-import Data.Aeson (Value)
+-- import Data.Vector (Vector)
+-- import Data.Aeson (Value)
 import Data.Text (Text)
 import Data.ByteString (ByteString)
 #if __GLASGOW_HASKELL__ >= 906
@@ -971,8 +958,8 @@ supportedLits = Map.fromList [
    -- -- Records
    -- ("Record.nil", lit' NilR)
   ]
-  where lit' :: forall a. Type.Typeable a => Prim -> a -> (UTerm (), SomeTypeRep)
-        lit' p x = (lit p x, SomeTypeRep $ Type.typeOf x)
+  where _lit' :: forall a. Type.Typeable a => Prim -> a -> (UTerm (), SomeTypeRep)
+        _lit' p x = (lit p x, SomeTypeRep $ Type.typeOf x)
 
 --------------------------------------------------------------------------------
 -- Derive prims TH
@@ -1083,15 +1070,15 @@ polyLits = Map.fromList
     in
     derivePrims [| do
 
-  -- -- Records
-  -- "Record.cons" ConsR :: forall (k :: Symbol) a (xs :: List). a -> Record xs -> Record (ConsL k a xs)
-  -- "Record.get" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). Tagged t (Record xs) -> a
-  -- "Record.set" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). a -> Tagged t (Record xs) -> Tagged t (Record xs)
-  -- "Record.modify" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). (a -> a) -> Tagged t (Record xs) -> Tagged t (Record xs)
-  -- "Tagged.Tagged" Tagged :: forall (t :: Symbol) a. a -> Tagged t a
-  -- -- Operators
-  -- "$" (Function.$) :: forall a b. (a -> b) -> a -> b
-  -- "." (Function..) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
+  -- Records
+  "Record.cons" ConsR :: forall (k :: Symbol) a (xs :: List). a -> Record xs -> Record (ConsL k a xs)
+  "Record.get" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). Tagged t (Record xs) -> a
+  "Record.set" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). a -> Tagged t (Record xs) -> Tagged t (Record xs)
+  "Record.modify" _ :: forall (k :: Symbol) a (t :: Symbol) (xs :: List). (a -> a) -> Tagged t (Record xs) -> Tagged t (Record xs)
+  "Tagged.Tagged" Tagged :: forall (t :: Symbol) a. a -> Tagged t a
+  -- Operators
+  "$" (Function.$) :: forall a b. (a -> b) -> a -> b
+  "." (Function..) :: forall a b c. (b -> c) -> (a -> b) -> a -> c
   -- -- Monad
   -- "Monad.bind" (Prelude.>>=) :: forall m a b. Monad m => m a -> (a -> m b) -> m b
   -- "Monad.then" (Prelude.>>) :: forall m a b. Monad m => m a -> m b -> m b
@@ -1130,6 +1117,7 @@ polyLits = Map.fromList
   -- -- Function
   "Function.id" Function.id :: forall a. a -> a
   -- "Function.fix" Function.fix :: forall a. (a -> a) -> a
+
   -- -- Set
   -- "Set.fromList" Set.fromList :: forall a. Ord a => [a] -> Set a
   -- "Set.insert" Set.insert :: forall a. Ord a => a -> Set a -> Set a
@@ -1262,103 +1250,103 @@ unsafeGetForall key l = Maybe.fromMaybe (error $ "Bad compile-time lookup for " 
   (forall', vars, irep, _) <- Map.lookup key polyLits
   pure (UForall (NameP key) l () [] forall' vars irep [])
 
---------------------------------------------------------------------------------
--- Accessor for ExitCode
+-- --------------------------------------------------------------------------------
+-- -- Accessor for ExitCode
 
-exit_exitCode :: a -> (Int -> a) -> ExitCode -> a
-exit_exitCode ok fail' = \case
-  ExitSuccess -> ok
-  ExitFailure i -> fail' i
+-- exit_exitCode :: a -> (Int -> a) -> ExitCode -> a
+-- exit_exitCode ok fail' = \case
+--   ExitSuccess -> ok
+--   ExitFailure i -> fail' i
 
---------------------------------------------------------------------------------
--- UTF-8 specific operations without all the environment gubbins
---
--- Much better than what Data.Text.IO provides
+-- --------------------------------------------------------------------------------
+-- -- UTF-8 specific operations without all the environment gubbins
+-- --
+-- -- Much better than what Data.Text.IO provides
 
-bytestring_readFile :: Text -> IO ByteString
-bytestring_readFile = ByteString.readFile . Text.unpack
+-- bytestring_readFile :: Text -> IO ByteString
+-- bytestring_readFile = ByteString.readFile . Text.unpack
 
-bytestring_writeFile :: Text -> ByteString -> IO ()
-bytestring_writeFile = ByteString.writeFile . Text.unpack
+-- bytestring_writeFile :: Text -> ByteString -> IO ()
+-- bytestring_writeFile = ByteString.writeFile . Text.unpack
 
-t_setStdin :: Text -> ProcessConfig () () () -> ProcessConfig () () ()
-t_setStdin text = setStdin (byteStringInput (L.fromStrict (Text.encodeUtf8 text)))
+-- t_setStdin :: Text -> ProcessConfig () () () -> ProcessConfig () () ()
+-- t_setStdin text = setStdin (byteStringInput (L.fromStrict (Text.encodeUtf8 text)))
 
-t_readProcess :: ProcessConfig () () () -> IO (ExitCode, Text, Text)
-t_readProcess c = do
-  (code, out, err) <- b_readProcess c
-  pure (code, Text.decodeUtf8 out, Text.decodeUtf8 err)
+-- t_readProcess :: ProcessConfig () () () -> IO (ExitCode, Text, Text)
+-- t_readProcess c = do
+--   (code, out, err) <- b_readProcess c
+--   pure (code, Text.decodeUtf8 out, Text.decodeUtf8 err)
 
-t_readProcess_ :: ProcessConfig () () () -> IO (Text, Text)
-t_readProcess_ c = do
-  (out, err) <- b_readProcess_ c
-  pure (Text.decodeUtf8 out, Text.decodeUtf8 err)
+-- t_readProcess_ :: ProcessConfig () () () -> IO (Text, Text)
+-- t_readProcess_ c = do
+--   (out, err) <- b_readProcess_ c
+--   pure (Text.decodeUtf8 out, Text.decodeUtf8 err)
 
-t_readProcessStdout_ :: ProcessConfig () () () -> IO Text
-t_readProcessStdout_ c = do
-  out <- b_readProcessStdout_ c
-  pure (Text.decodeUtf8 out)
+-- t_readProcessStdout_ :: ProcessConfig () () () -> IO Text
+-- t_readProcessStdout_ c = do
+--   out <- b_readProcessStdout_ c
+--   pure (Text.decodeUtf8 out)
 
-t_putStrLn :: Text -> IO ()
-t_putStrLn = ByteString.hPutBuilder IO.stdout . (<>"\n") . ByteString.byteString . Text.encodeUtf8
+-- t_putStrLn :: Text -> IO ()
+-- t_putStrLn = ByteString.hPutBuilder IO.stdout . (<>"\n") . ByteString.byteString . Text.encodeUtf8
 
-t_hPutStr :: IO.Handle -> Text -> IO ()
-t_hPutStr h = ByteString.hPutBuilder h . ByteString.byteString . Text.encodeUtf8
+-- t_hPutStr :: IO.Handle -> Text -> IO ()
+-- t_hPutStr h = ByteString.hPutBuilder h . ByteString.byteString . Text.encodeUtf8
 
-t_putStr :: Text -> IO ()
-t_putStr = t_hPutStr IO.stdout
+-- t_putStr :: Text -> IO ()
+-- t_putStr = t_hPutStr IO.stdout
 
-t_getLine :: IO Text
-t_getLine = fmap Text.decodeUtf8 ByteString.getLine
+-- t_getLine :: IO Text
+-- t_getLine = fmap Text.decodeUtf8 ByteString.getLine
 
-t_writeFile :: Text -> Text -> IO ()
-t_writeFile fp t = ByteString.writeFile (Text.unpack fp) (Text.encodeUtf8 t)
+-- t_writeFile :: Text -> Text -> IO ()
+-- t_writeFile fp t = ByteString.writeFile (Text.unpack fp) (Text.encodeUtf8 t)
 
-t_appendFile :: Text -> Text -> IO ()
-t_appendFile fp t = ByteString.appendFile (Text.unpack fp) (Text.encodeUtf8 t)
+-- t_appendFile :: Text -> Text -> IO ()
+-- t_appendFile fp t = ByteString.appendFile (Text.unpack fp) (Text.encodeUtf8 t)
 
-t_readFile :: Text -> IO Text
-t_readFile fp = fmap Text.decodeUtf8 (ByteString.readFile (Text.unpack fp))
+-- t_readFile :: Text -> IO Text
+-- t_readFile fp = fmap Text.decodeUtf8 (ByteString.readFile (Text.unpack fp))
 
---------------------------------------------------------------------------------
--- JSON operations
+-- --------------------------------------------------------------------------------
+-- -- JSON operations
 
--- Accessor for JSON.
-json_value :: forall a.
-  a -- Null
-  -> (Bool -> a) -- Bool
-  -> (Text -> a) -- String
-  -> (Double -> a) -- Number
-  -> (Vector Value -> a) -- Array
-  -> (Map Text Value -> a) -- Object
-  -> Value
-  -> a
-json_value null' bool string number array object =
-  \case
-    Json.Null -> null'
-    Json.Bool s -> bool s
-    Json.String s -> string s
-    Json.Number s -> number (realToFrac s)
-    Json.Array s -> array s
-    Json.Object s -> object $ KeyMap.toMapText $ s
+-- -- Accessor for JSON.
+-- json_value :: forall a.
+--   a -- Null
+--   -> (Bool -> a) -- Bool
+--   -> (Text -> a) -- String
+--   -> (Double -> a) -- Number
+--   -> (Vector Value -> a) -- Array
+--   -> (Map Text Value -> a) -- Object
+--   -> Value
+--   -> a
+-- json_value null' bool string number array object =
+--   \case
+--     Json.Null -> null'
+--     Json.Bool s -> bool s
+--     Json.String s -> string s
+--     Json.Number s -> number (realToFrac s)
+--     Json.Array s -> array s
+--     Json.Object s -> object $ KeyMap.toMapText $ s
 
 --------------------------------------------------------------------------------
 -- ByteString operations
 
-b_readProcess :: ProcessConfig () () () -> IO (ExitCode, ByteString, ByteString)
-b_readProcess c = do
-  (code, out, err) <- readProcess c
-  pure (code, L.toStrict out, L.toStrict err)
+-- b_readProcess :: ProcessConfig () () () -> IO (ExitCode, ByteString, ByteString)
+-- b_readProcess c = do
+--   (code, out, err) <- readProcess c
+--   pure (code, L.toStrict out, L.toStrict err)
 
-b_readProcess_ :: ProcessConfig () () () -> IO (ByteString, ByteString)
-b_readProcess_ c = do
-  (out, err) <- readProcess_ c
-  pure (L.toStrict out, L.toStrict err)
+-- b_readProcess_ :: ProcessConfig () () () -> IO (ByteString, ByteString)
+-- b_readProcess_ c = do
+--   (out, err) <- readProcess_ c
+--   pure (L.toStrict out, L.toStrict err)
 
-b_readProcessStdout_ :: ProcessConfig () () () -> IO ByteString
-b_readProcessStdout_ c = do
-  out <- readProcessStdout_ c
-  pure (L.toStrict out)
+-- b_readProcessStdout_ :: ProcessConfig () () () -> IO ByteString
+-- b_readProcessStdout_ c = do
+--   out <- readProcessStdout_ c
+--   pure (L.toStrict out)
 
 --------------------------------------------------------------------------------
 -- Inference type representation
@@ -1609,7 +1597,7 @@ data Tagged (s :: Symbol) a = Tagged a
 data List = NilL | ConsL Symbol Type List
 
 data Record (xs :: List) where
-  NilR  :: Record 'NilL
+  -- NilR  :: Record 'NilL
   ConsR :: forall k a xs. a -> Record xs -> Record (ConsL k a xs)
 
 -- | Build up a type-safe getter.
