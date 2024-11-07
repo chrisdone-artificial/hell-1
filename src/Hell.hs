@@ -20,6 +20,7 @@ module Main (main) where
 -- e.g. 'Data.Graph' becomes 'Graph', and are then exposed to the Hell
 -- guest language as such.
 
+import Data.Char
 import Language.Haskell.TH.Instances ()
 import Lucid hiding (for_, Term, term)
 
@@ -124,14 +125,17 @@ dispatch (Run filePath) = do
                         case check uterm Nil of
                            Left err -> error $ prettyString err
                            Right (Typed t ex) ->
-                             case Type.eqTypeRep (typeRepKind t) (typeRep @Type) of
-                               Nothing -> error $ "Kind error, that's nowhere near an IO ()!"
-                               Just Type.HRefl ->
-                                 case Type.eqTypeRep t (typeRep @(IO ())) of
-                                   Just Type.HRefl ->
-                                     let action :: IO () = eval () ex
-                                     in action
-                                   Nothing -> error $ "Type isn't IO (), but: " ++ show t
+                             if False then
+                               case Type.eqTypeRep (typeRepKind t) (typeRep @Type) of
+                                 Nothing -> error $ "Kind error, that's nowhere near an IO ()!"
+                                 Just Type.HRefl ->
+                                   case Type.eqTypeRep t (typeRep @(IO ())) of
+                                     Just Type.HRefl ->
+                                       let action :: IO () = eval () ex
+                                       in action
+                                     Nothing -> error $ "Type isn't IO (), but: " ++ show t
+                              else
+                                putStrLn $ toJS uterm
 dispatch (Check filePath) = do
   result <- parseFile filePath
   case result of
@@ -856,7 +860,7 @@ supportedLits = Map.fromList [
    -- -- Text operations
    -- ("Text.decodeUtf8", lit' Text.decodeUtf8),
    -- ("Text.encodeUtf8", lit' Text.encodeUtf8),
-   -- ("Text.eq", lit' ((==) @Text)),
+   ("Text.eq", lit' (NameP "Text.eq") ((==) @Text)),
    -- ("Text.length", lit' Text.length),
    -- ("Text.concat", lit' Text.concat),
    -- ("Text.breakOn", lit' Text.breakOn),
@@ -889,7 +893,7 @@ supportedLits = Map.fromList [
    -- ("Text.interact", lit' (\f -> ByteString.interact (Text.encodeUtf8 . f. Text.decodeUtf8))),
    -- -- Int operations
    -- ("Int.show", lit' (Text.pack . show @Int)),
-   -- ("Int.eq", lit' ((==) @Int)),
+   ("Int.eq", lit' (NameP "Int.eq") ((==) @Int))
    -- ("Int.plus", lit' ((+) @Int)),
    -- ("Int.subtract", lit' (subtract @Int)),
    -- -- Double operations
@@ -958,8 +962,8 @@ supportedLits = Map.fromList [
    -- -- Records
    -- ("Record.nil", lit' NilR)
   ]
-  where _lit' :: forall a. Type.Typeable a => Prim -> a -> (UTerm (), SomeTypeRep)
-        _lit' p x = (lit p x, SomeTypeRep $ Type.typeOf x)
+  where lit' :: forall a. Type.Typeable a => Prim -> a -> (UTerm (), SomeTypeRep)
+        lit' p x = (lit p x, SomeTypeRep $ Type.typeOf x)
 
 --------------------------------------------------------------------------------
 -- Derive prims TH
@@ -1102,7 +1106,7 @@ polyLits = Map.fromList
   -- "Ord.lt" (Ord.<) :: forall a. Ord a => a -> a -> Bool
   -- "Ord.gt" (Ord.>) :: forall a. Ord a => a -> a -> Bool
   -- -- Tuples
-  -- "Tuple.(,)" (,) :: forall a b. a -> b -> (a,b)
+  "Tuple.(,)" (,) :: forall a b. a -> b -> (a,b)
   -- "Tuple.(,)" (,) :: forall a b. a -> b -> (a,b)
   -- "Tuple.(,,)" (,,) :: forall a b c. a -> b -> c -> (a,b,c)
   -- "Tuple.(,,,)" (,,,) :: forall a b c d. a -> b -> c -> d -> (a,b,c,d)
@@ -1811,3 +1815,27 @@ cleanUpTHType = SYB.everywhere unqualify where
       Nothing -> a
       Just Type.HRefl ->
         TH.mkName $ TH.nameBase a
+
+--------------------------------------------------------------------------------
+-- JS
+
+toJS :: UTerm t -> String
+toJS = \case
+  UVar _ _ v -> zzEncode v
+  ULam _ _ (Singleton v) _ e ->
+    "(" ++ zzEncode v ++ ") => " ++ toJS e ++ ""
+  ULam _ _ (Tuple vs) _ e ->
+    "([" ++ List.intercalate "," (map zzEncode vs) ++ "]) => " ++ toJS e
+  UApp _ _ f x -> "(" ++ toJS f ++ ")(" ++ toJS x ++ ")"
+  UForall (NameP s) _ _ _ _ _ _ _ -> zzEncode s
+  UForall (LitP l) _ _ _ _ _ _ _ -> case l of
+    HSE.String _ _ string -> show string -- TODO:
+    HSE.Int _ _i string -> string -- TODO:
+    _ -> error "Unsupported literal."
+  UForall UnitP _ _ _ _ _ _ _ -> "0"
+
+zzEncode :: [Char] -> [Char]
+zzEncode = concatMap z where
+  z 'z' = "zz"
+  z c | isAlphaNum c = [c]
+      | otherwise = "z" ++ show (ord c)
