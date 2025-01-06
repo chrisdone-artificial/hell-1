@@ -28,6 +28,7 @@ executable hell
     , directory
     , ghc-prim
     , haskell-src-exts
+    , ghc-lib-parser
     , hspec
     , lucid2
     , mtl

@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFoldable #-}
@@ -86,10 +87,6 @@ import Data.Void
 import GHC.TypeLits
 import GHC.Types (Type)
 import qualified Language.Haskell.Exts as HSE
-import Language.Haskell.TH (Q)
-import qualified Language.Haskell.TH as TH
-import Language.Haskell.TH.Instances ()
-import qualified Language.Haskell.TH.Syntax as TH
 import Lucid hiding (Term, for_, term)
 import qualified Options.Applicative as Options
 import qualified System.Directory as Dir
@@ -104,6 +101,27 @@ import qualified Text.Show as Show
 import Type.Reflection (SomeTypeRep (..), TypeRep, typeRep, typeRepKind, pattern TypeRep)
 import qualified Type.Reflection as Type
 import qualified UnliftIO.Async as Async
+
+--------------------------------------------------------------------------------
+-- Template-Haskell
+
+import "template-haskell" Language.Haskell.TH (Q) -- PackageImports needed due to ghc-lib-parser overlapping
+import qualified  "template-haskell" Language.Haskell.TH as TH
+import qualified  "template-haskell" Language.Haskell.TH.Syntax as TH
+import Language.Haskell.TH.Instances ()
+
+--------------------------------------------------------------------------------
+-- GHC parser lib
+import qualified GHC.Parser as GHC
+import qualified Language.Haskell.Syntax as GHC
+import qualified GHC.Parser.Lexer as GHC
+import qualified GHC.Types.SrcLoc as GHC
+import qualified GHC.Data.FastString as GHC
+import qualified GHC.Data.StringBuffer as GHC
+import qualified GHC.Utils.Error as GHC
+import qualified GHC.Utils.Outputable as GHC
+import qualified GHC.Unit.Module.Warnings as GHC
+import qualified GHC.Hs.Extension as GHC
 
 ------------------------------------------------------------------------------
 -- Main entry point
@@ -2252,3 +2270,53 @@ cleanUpTHType = SYB.everywhere unqualify
         Nothing -> a
         Just Type.HRefl ->
           TH.mkName $ TH.nameBase a
+
+--------------------------------------------------------------------------------
+-- GHC->HSE adapter
+
+-- | Same as parseGhcModule0 but without all the GHC gubbins.
+parseGhcModule :: String -> Either String (GHC.Located (GHC.HsModule GHC.GhcPs))
+parseGhcModule string =
+  case parseGhcModule0 string of
+    GHC.POk _state a -> pure a
+    GHC.PFailed state' -> Left $
+      let errs = GHC.getPsErrorMessages state'
+      in GHC.showSDocUnsafe $ GHC.ppr errs
+
+parseGhcModule0 :: String -> GHC.ParseResult (GHC.Located (GHC.HsModule GHC.GhcPs))
+parseGhcModule0 string =
+  runGhcParser opts string GHC.parseModule
+  where
+    opts =
+      GHC.mkParserOpts
+        mempty
+        GHC.DiagOpts {
+           GHC.diag_warning_flags = mempty,
+           GHC.diag_fatal_warning_flags = mempty,
+           GHC.diag_custom_warning_categories = GHC.emptyWarningCategorySet,
+           GHC.diag_fatal_custom_warning_categories = GHC.emptyWarningCategorySet,
+           GHC.diag_warn_is_error = False,
+           GHC.diag_reverse_errors = False,
+           GHC.diag_max_errors = Nothing,
+           GHC.diag_ppr_ctx = GHC.defaultSDocContext}
+       -- Supported Languages and Extensions
+       ["BlockArguments", "DataKinds", "PatternSignatures", "TypeApplications"]
+       -- are safe imports on?
+       False
+       -- keeping Haddock comment tokens
+       False
+       -- keep regular comment tokens
+       False
+       -- If this is enabled, '{-# LINE ... -#}' and '{-# COLUMN
+       -- ... #-}' update the internal position kept by the
+       -- parser. Otherwise, those pragmas are lexed as ITline_prag
+       -- and ITcolumn_prag tokens.
+       False
+
+runGhcParser :: GHC.ParserOpts -> String -> GHC.P a -> GHC.ParseResult a
+runGhcParser opts str parser = GHC.unP parser parseState
+ where
+  filename = "<interactive>"
+  location = GHC.mkRealSrcLoc (GHC.mkFastString filename) 1 1
+  buffer = GHC.stringToStringBuffer str
+  parseState = GHC.initParserState opts buffer location
